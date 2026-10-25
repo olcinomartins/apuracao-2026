@@ -12,6 +12,8 @@ const BASE = QS.get("dados") || (TESTE ? "./data-test/" : `https://raw.githubuse
 const BASE_T1 = QS.get("dados_t1") || (TESTE ? "./data-test/t1/" : `https://raw.githubusercontent.com/${OWNER}/${REPO}/data/t1/`);
 const GEOJSON = "https://cdn.jsdelivr.net/gh/codeforgermany/click_that_hood@48ba05ad4c6969e3b3c25735492169227ae411f1/public/data/brazil-states.geojson";
 const REFRESH_MS = 60000;
+// Versão publicada; muda a cada deploy junto com versao.txt e os ?v= do index.html
+const VERSAO = "20261025182131";
 
 const REGIOES = {
   N: ["ac", "am", "ap", "pa", "ro", "rr", "to"],
@@ -716,7 +718,16 @@ async function trocaTurno(t) {
   if (t === "t1") { renderTudo(); await carregaT1(); }
   renderTudo();
 }
+// Página aberta há horas: se saiu versão nova do site, recarrega sozinha
+async function confereVersao() {
+  if (TESTE || location.protocol === "file:") return;
+  try {
+    const r = await fetch(`versao.txt?t=${Date.now()}`, { cache: "no-store" });
+    if (r.ok && (await r.text()).trim() !== VERSAO) location.reload();
+  } catch (e) { /* sem rede: tenta no próximo minuto */ }
+}
 async function atualizar() {
+  confereVersao();
   const [latest, meta] = await Promise.all([getJSON("latest.json"), getJSON("meta.json")]);
   if (latest) S.d.t2.latest = latest;
   if (meta) S.d.t2.meta = meta;
