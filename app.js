@@ -13,7 +13,7 @@ const BASE_T1 = QS.get("dados_t1") || (TESTE ? "./data-test/t1/" : `https://raw.
 const GEOJSON = "https://cdn.jsdelivr.net/gh/codeforgermany/click_that_hood@48ba05ad4c6969e3b3c25735492169227ae411f1/public/data/brazil-states.geojson";
 const REFRESH_MS = 60000;
 // Versão publicada; muda a cada deploy junto com versao.txt e os ?v= do index.html
-const VERSAO = "20261025183948";
+const VERSAO = "20261025184906";
 
 const REGIOES = {
   N: ["ac", "am", "ap", "pa", "ro", "rr", "to"],
@@ -46,8 +46,8 @@ const S = {
   municipios: {}, base: null, geo: null, series: {},
   sel: { regiao: null, uf: null, mun: null },
   candProj: "flavio",  // candidato cujos dados aparecem na tabela da projeção
-  ordProj: { col: "falta", dir: -1 },   // ordenação da tabela da projeção (Geral)
-  ordReg: { col: "saldo", dir: -1 },    // ordenação da tabela da projeção (Por região)
+  ordProj: { col: "pct", dir: -1 },     // ordenação da tabela da projeção (Geral): maior % apurado primeiro
+  ordReg: { col: "pct", dir: -1 },      // ordenação da tabela da projeção (Por região): maior % apurado primeiro
 };
 
 // Cabeçalho clicável que ordena a tabela; a seta mostra a coluna e o sentido atuais
