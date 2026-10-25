@@ -26,6 +26,9 @@ sem tocar nos dados reais.
 - Coletor: baixa Brasil + EA14; só as UFs cujo horário/seções mudaram (inclusive ZZ); para essas, o EA15 e só os
   municípios que mudaram. Usa ETag, ~20 req/s com semáforo, só URLs montadas a partir dos arquivos do TSE, e
   pausa 2 min se receber 403/429. Municípios sem nenhuma seção totalizada não são baixados (o EA15 já basta).
+- 1º turno: `python collector/build_t1.py --out <pasta>` gera `t1/` (foto final com todos os candidatos), usado
+  pelo seletor "1º turno" do site. Sem histórico (o coletor não rodou no 1º turno), então evolução e projeções
+  aparecem só no 2º turno. O site abre no 1º turno até o 2º ter votos.
 - Local: `python collector/build_base_1t.py --out <pasta>` gera `base_1t/`;
   `python collector/replay.py --base <pasta> --out data-test` gera uma apuração sintética;
   `python -m http.server` e abra `http://localhost:8000/?fonte=teste`.

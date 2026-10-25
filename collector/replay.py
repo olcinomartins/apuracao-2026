@@ -30,6 +30,8 @@ def main(base, out, passos, seed):
         shutil.rmtree(out)
     os.makedirs(out)
     shutil.copytree(os.path.join(base, "base_1t"), os.path.join(out, "base_1t"))
+    if os.path.exists(os.path.join(base, "t1")):
+        shutil.copytree(os.path.join(base, "t1"), os.path.join(out, "t1"))
     if os.path.exists(os.path.join(base, "municipios.json")):
         shutil.copy(os.path.join(base, "municipios.json"), out)
 
