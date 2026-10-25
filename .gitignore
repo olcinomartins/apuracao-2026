@@ -2,3 +2,5 @@ __pycache__/
 data-out/
 *.tmp
 data-test/
+.taste-skill/
+.playwright-cli/

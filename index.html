@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#f2f4f7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
 <title>Apuração Presidente 2026</title>
 <meta name="description" content="Apuração para Presidente 2026 (Flávio Bolsonaro x Lula), 1º e 2º turno, com a evolução da contagem por Brasil, região, estado e município.">
@@ -11,24 +11,22 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://raw.githubusercontent.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='9' width='13' height='14' rx='2' fill='%232a62c9'/%3E%3Crect x='16' y='9' width='13' height='14' rx='2' fill='%23d03a2f'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="style.css">
 <script src="app.js" defer></script>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <symbol id="i-lupa" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m20 20-4.2-4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
-  <symbol id="i-filtro" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
-  <symbol id="i-seta" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-  <symbol id="i-tema" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></symbol>
+  <symbol id="i-lupa" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="m20 20-4.2-4.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-filtro" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-seta" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-tema" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></symbol>
 </svg>
 <a class="pular" href="#conteudo">Pular para o conteúdo</a>
 
 <header class="barra">
   <div class="wrap barra-in">
-    <div class="marca">
-      <h1>Apuração Presidente 2026</h1>
-      <p id="status" class="status" aria-live="polite">Carregando…</p>
-    </div>
+    <p class="marca" translate="no">Apuração <span>Presidente 2026</span></p>
     <div class="barra-acoes">
       <div class="seg" role="tablist" aria-label="Turno">
         <button type="button" role="tab" data-turno="t1">1º turno</button>
@@ -42,14 +40,17 @@
 <main id="conteudo" class="wrap">
   <p id="aviso-teste" class="aviso" hidden>Modo teste: dados sintéticos gerados a partir do 1º turno.</p>
 
-  <div class="local">
-    <div class="local-txt">
-      <h2 id="titulo-local">Brasil</h2>
-      <span id="turno-tag" class="meta"></span>
+  <div class="titulo">
+    <div class="titulo-txt">
+      <h1 id="titulo-local">Brasil</h1>
+      <p id="achado" class="achado" aria-live="polite">Carregando…</p>
     </div>
-    <button id="btn-filtro" class="btn" type="button" aria-expanded="false" aria-controls="filtros">
-      <svg aria-hidden="true"><use href="#i-filtro"/></svg>Filtrar local
-    </button>
+    <div class="titulo-acoes">
+      <p id="status" class="status"></p>
+      <button id="btn-filtro" class="btn btn-prim" type="button" aria-expanded="false" aria-controls="filtros">
+        <svg aria-hidden="true"><use href="#i-filtro"/></svg>Filtrar local
+      </button>
+    </div>
   </div>
   <section id="filtros" class="filtros" aria-label="Escolha do local" hidden>
     <div class="filtro"><span class="rotulo" id="rot-regiao">Região</span><div class="combo" id="cb-regiao" data-label="rot-regiao"></div></div>
@@ -57,28 +58,46 @@
     <div class="filtro filtro-largo"><span class="rotulo" id="rot-mun">Município</span><div class="combo" id="cb-mun" data-label="rot-mun"></div></div>
   </section>
 
-  <section class="placar" aria-live="polite" aria-label="Resultado">
+  <section class="placar" aria-label="Resultado">
     <div id="placar"></div>
     <div id="kpis" class="kpis"></div>
-    <div id="kpis2" class="kpis2"></div>
+    <div id="kpis2" class="kpis kpis2"></div>
   </section>
 
-  <section class="bloco">
-    <div class="bloco-cab">
-      <h3>Mapa por estado</h3>
-      <div class="seg seg-mini" role="tablist" aria-label="Visão do mapa">
-        <button type="button" role="tab" data-mapa="grade">Grade</button>
-        <button type="button" role="tab" data-mapa="geo">Mapa</button>
-        <button type="button" role="tab" data-mapa="ne">Nordeste</button>
+  <section class="onde">
+    <div class="painel painel-mapa">
+      <div class="painel-cab">
+        <h2>Mapa por estado</h2>
+        <div class="seg seg-mini" role="tablist" aria-label="Visão do mapa">
+          <button type="button" role="tab" data-mapa="grade">Grade</button>
+          <button type="button" role="tab" data-mapa="geo">Mapa</button>
+          <button type="button" role="tab" data-mapa="ne">Nordeste</button>
+        </div>
       </div>
+      <div id="mapa" class="mapa"></div>
+      <p class="legenda"><span class="sw" style="--c:var(--lula)"></span>Lula <span class="sw" style="--c:var(--flavio)"></span>Flávio <span class="sw" style="--c:var(--sem)"></span>sem votos · tom mais forte, margem maior</p>
     </div>
-    <div id="mapa" class="mapa"></div>
-    <p class="legenda"><span class="sw" style="--c:var(--lula)"></span>Lula <span class="sw" style="--c:var(--flavio)"></span>Flávio <span class="sw" style="--c:var(--sem)"></span>sem votos · cor mais forte, margem maior. Toque num estado para ver os detalhes.</p>
+    <div class="painel painel-lista">
+      <div class="painel-cab">
+        <h2>Por estado</h2>
+        <label class="campo campo-mini">
+          <span class="vh">Ordenar por</span>
+          <select id="ordem" name="ordem" aria-label="Ordenar estados por">
+            <option value="pct">% apurado</option>
+            <option value="restante">a apurar</option>
+            <option value="margem">margem</option>
+            <option value="nome">nome</option>
+          </select>
+        </label>
+      </div>
+      <div id="lista-uf" class="lista-uf"></div>
+      <button id="ver-todos" class="link" type="button" hidden></button>
+    </div>
   </section>
 
-  <section class="bloco so-t2">
-    <div class="bloco-cab">
-      <h3>Evolução da contagem</h3>
+  <section class="painel so-t2">
+    <div class="painel-cab">
+      <h2>Evolução da contagem</h2>
       <details class="ctrl">
         <summary class="btn btn-mini"><svg aria-hidden="true"><use href="#i-filtro"/></svg>Filtro</summary>
         <div class="pop">
@@ -88,49 +107,34 @@
         </div>
       </details>
     </div>
-    <p class="sub">% dos válidos de cada candidato conforme a apuração avança. Tracejado: projeção linear até 100% (estimativa não oficial).</p>
+    <p class="sub">% dos válidos de cada candidato conforme a apuração avança. Tracejado: projeção linear até 100%, estimativa não oficial.</p>
     <div id="g-evolucao" class="grafico"></div>
     <p id="virada" class="sub"></p>
   </section>
 
-  <section id="bloco-cands" class="bloco so-t1">
-    <h3>Todos os candidatos</h3>
-    <div id="cands"></div>
+  <section class="painel so-t1">
+    <h2>Todos os candidatos</h2>
+    <div id="cands" class="lista-cands"></div>
     <p id="cands-hora" class="sub"></p>
   </section>
 
   <details class="dobra so-t2">
-    <summary><h3>Projeção para 100%</h3><span class="meta">estimativa não oficial</span></summary>
+    <summary><h2>Projeção para 100%</h2><span class="meta">estimativa não oficial</span></summary>
     <div id="projecao" class="proj"></div>
-    <p class="sub">A <b>linear</b> estende a tendência recente da margem. A <b>ponderada</b> soma, município a município, os votos
-    que ainda faltam (eleitorado × comparecimento esperado − já apurados), divididos pela tendência de cada local ou, onde quase nada
-    foi apurado, pelo 1º turno ajustado pelo swing do estado. Elas diferem porque a ordem de apuração não é aleatória: regiões, capitais
-    e o exterior chegam em horários diferentes e votam de jeitos diferentes.</p>
-  </details>
-
-  <details class="dobra">
-    <summary><h3>Por estado</h3><span class="meta">% apurado e líder</span></summary>
-    <div class="dobra-cab">
-      <label class="campo">Ordenar por
-        <select id="ordem" name="ordem">
-          <option value="pct">% apurado</option>
-          <option value="nome">nome</option>
-          <option value="margem">margem</option>
-          <option value="restante">votos restantes</option>
-        </select>
-      </label>
-    </div>
-    <div id="lista-uf" class="lista-barras"></div>
+    <p class="sub">A linear estende a tendência recente da margem. A ponderada soma, município a município, os votos que ainda faltam
+    (eleitorado × comparecimento esperado − já apurados), divididos pela tendência de cada local ou, onde quase nada foi apurado, pelo
+    1º turno ajustado pelo swing do estado. Elas diferem porque a ordem de apuração não é aleatória: regiões, capitais e o exterior
+    chegam em horários diferentes e votam de jeitos diferentes.</p>
   </details>
 
   <details class="dobra" id="dobra-mun">
-    <summary><h3 id="titulo-mun">Municípios</h3><span class="meta" id="meta-mun"></span></summary>
-    <label class="busca"><svg aria-hidden="true"><use href="#i-lupa"/></svg><input id="filtro-mun" name="filtro-mun" type="search" placeholder="Buscar município…" autocomplete="off" aria-label="Buscar município"></label>
+    <summary><h2 id="titulo-mun">Municípios</h2><span class="meta" id="meta-mun"></span></summary>
+    <label class="busca"><svg aria-hidden="true"><use href="#i-lupa"/></svg><input id="filtro-mun" name="filtro-mun" type="search" placeholder="Buscar município…" autocomplete="off" spellcheck="false" aria-label="Buscar município"></label>
     <div class="tabela-wrap"><table id="t-mun" class="tabela"></table></div>
   </details>
 
   <details class="dobra so-t2">
-    <summary><h3>Comparação com o 1º turno</h3><span class="meta">divisão só entre os dois</span></summary>
+    <summary><h2>Comparação com o 1º turno</h2><span class="meta">divisão só entre os dois</span></summary>
     <div class="tabela-wrap"><table id="t-1t" class="tabela"></table></div>
   </details>
 </main>

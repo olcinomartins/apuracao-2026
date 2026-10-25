@@ -77,7 +77,7 @@ const titulo = (s) => String(s).toLowerCase().replace(/(^|[\s'(-])(\p{L})/gu, (m
 function mix(a, b, t) {
   const h = (x) => [1, 3, 5].map((i) => parseInt(x.slice(i, i + 2), 16));
   const [p, q] = [h(a), h(b)];
-  return "#" + p.map((v, i) => Math.round(v + (q[i] - v) * t).toString(16).padStart(2, "0")).join("");
+  return "#" + p.map((v, i) => Math.round(v + (q[i] - v) * t).toString(16).padStart(2, "0")).join(""); // taste-skill-ignore (hex, não numeração)
 }
 
 async function getJSON(path, base = BASE) {
@@ -290,7 +290,7 @@ function Combo(el, { onChange, placeholder = "Buscar…", limite = 300 }) {
 function renderPlacar(p, proj) {
   const el = $("placar");
   if (!p) {
-    el.innerHTML = `<div class="duelo"><p class="sub">Ainda não há votos apurados para este local.</p></div>`;
+    el.innerHTML = `<div class="duelo"><p class="sub">Ainda não há votos apurados para este local.</p></div>`; // achado também avisa
     $("kpis").innerHTML = ""; $("kpis2").innerHTML = "";
     return;
   }
@@ -300,7 +300,6 @@ function renderPlacar(p, proj) {
   const dif = p.votos.flavio - p.votos.lula;
   const lider = dif >= 0 ? F : Lu;
   const restantes = proj ? proj.faltam : null;
-  const definido = !T1() && restantes != null && dois(p) > 0 && Math.abs(dif) > restantes;
   const lado = (c, pct, dir) => `<div class="lado ${dir ? "lado-dir" : ""}" style="--c:var(${c.cor})">
       <div class="lado-nome">${dir ? "" : `<span class="sw"></span>`}<span translate="no">${c.nome}</span>${dir ? `<span class="sw"></span>` : ""}</div>
       <div class="lado-pct">${dois(p) ? fmtPct(pct) : "–"}</div>
@@ -309,18 +308,15 @@ function renderPlacar(p, proj) {
     <div class="duelo-barra" role="img" aria-label="Flávio ${fmtPct(pf)}, Lula ${fmtPct(pl)}">
       <span style="--c:var(--flavio);width:${dois(p) ? pf : 0}%"></span>
       ${outros > 0 ? `<span style="--c:var(--outros);width:${outros}%"></span>` : ""}
-      <span style="--c:var(--lula);width:${dois(p) ? pl : 0}%"></span></div>
-    <p class="duelo-nota">${dois(p)
-      ? `<b>${lider.curto}</b> à frente por <b>${fmtInt(Math.abs(dif))}</b> votos${definido ? `<span class="selo">Matematicamente definido</span>` : ""}`
-      : "Aguardando os primeiros votos…"}${outros > 0 ? ` · outros candidatos ${fmtPct(outros, 1)}` : ""}</p></div>`;
+      <span style="--c:var(--lula);width:${dois(p) ? pl : 0}%"></span></div></div>`;
   const kpi = (rot, val, sub, trilho) => `<div class="kpi"><div class="rot">${rot}</div><div class="val">${val}</div>
     ${trilho != null ? `<div class="trilho"><span style="width:${Math.min(100, trilho)}%"></span></div>` : ""}${sub ? `<div class="sub">${sub}</div>` : ""}</div>`;
   const apto = p.comparecimento + p.abst;
   $("kpis").innerHTML =
     kpi("Seções apuradas", fmtPct(p.pct_apurado), null, p.pct_apurado) +
-    kpi("Diferença", dois(p) ? fmtPP(shareF(p) - shareL(p)) : "–", dois(p) ? `${lider.curto} na frente` : "") +
+    kpi("Diferença", dois(p) ? fmtInt(Math.abs(dif)) : "–", dois(p) ? `votos · ${fmtPP(shareF(p) - shareL(p))} para ${lider.curto}` : "") +
     (T1()
-      ? kpi("Votos válidos", fmtInt(p.validos), "todos os candidatos")
+      ? kpi("Outros candidatos", fmtPct(outros, 1), `${fmtInt(p.validos - dois(p))} votos`)
       : kpi("Válidos a apurar", restantes == null ? "–" : fmtInt(restantes), "estimativa")) +
     kpi("Comparecimento", fmtPct(apto ? (100 * p.comparecimento) / apto : null, 1), `${fmtInt(p.comparecimento)} eleitores`);
   const k2 = (rot, v, base) => `<div class="kpi"><div class="rot">${rot}</div><div class="val">${fmtPct(base ? (100 * v) / base : null, 1)} <span class="meta">${fmtInt(v)}</span></div></div>`;
@@ -330,13 +326,33 @@ function renderPlacar(p, proj) {
     : "";
 }
 
+/* ---------- achado: a frase sob o título ---------- */
+function achado(p, proj, serie) {
+  if (!p || !dois(p)) return T1() ? "Carregando o resultado…" : "A apuração começa às 17h. Até lá, veja o 1º turno.";
+  const F = p.votos.flavio >= p.votos.lula;
+  const lider = F ? "Flávio" : "Lula", outro = F ? "Lula" : "Flávio";
+  const dif = Math.abs(p.votos.flavio - p.votos.lula);
+  if (T1()) {
+    const pl = pctC(p, F ? "flavio" : "lula"), po = pctC(p, F ? "lula" : "flavio");
+    return `${lider} terminou na frente com ${fmtPct(pl)}, contra ${fmtPct(po)} de ${outro}.`;
+  }
+  if (p.pct_apurado >= 100) return `${lider} venceu aqui por ${fmtInt(dif)} votos, com ${fmtPct(F ? shareF(p) : shareL(p))} dos válidos.`;
+  const restantes = proj ? proj.faltam : null;
+  if (restantes != null && dif > restantes) return `${lider} já não pode ser alcançado aqui: a vantagem de ${fmtInt(dif)} votos supera os cerca de ${fmtInt(restantes)} que faltam.`;
+  let virada = null;
+  const pts = (serie || []).filter((q) => dois(q));
+  for (let i = 1; i < pts.length; i++) if (Math.sign(margem(pts[i - 1])) * Math.sign(margem(pts[i])) < 0) virada = pts[i];
+  if (virada) return `${lider} virou com ${fmtPct(virada.pct_apurado, 1)} apurado e lidera por ${fmtInt(dif)} votos.`;
+  return `${lider} lidera por ${fmtInt(dif)} votos${restantes != null ? `; faltam cerca de ${fmtInt(restantes)} válidos` : ""}.`;
+}
+
 /* ---------- mapa (SVG: grade, geográfico, recorte do Nordeste) ---------- */
 function corUF(p) {
   const surf = cssVar("--surface");
   if (!p || !dois(p)) return cssVar("--sem");
   const m = margem(p), base = m >= 0 ? cssVar("--flavio") : cssVar("--lula");
-  const t = Math.min(1, Math.abs(m) / 30);  // 0 p.p. = tom claro, 30+ p.p. = cor cheia
-  return mix(base, surf, 0.7 - 0.7 * t);
+  const t = Math.min(1, Math.abs(m) / 30);  // 0 p.p. = tom bem claro, 30+ p.p. = quase cheio
+  return mix(base, surf, 0.78 - 0.6 * t);
 }
 function inkSobre(hex) {
   const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
@@ -432,6 +448,9 @@ function renderEvolucao(serie) {
   if (lin && lin.x0 < 100) {
     h += `<line x1="${X(lin.x0)}" y1="${Y(50 + lin.margemX0 / 2)}" x2="${X(100)}" y2="${Y(lin.flavio)}" stroke="${cF}" stroke-width="2" stroke-dasharray="5 4"/>`;
     h += `<line x1="${X(lin.x0)}" y1="${Y(50 - lin.margemX0 / 2)}" x2="${X(100)}" y2="${Y(lin.lula)}" stroke="${cL}" stroke-width="2" stroke-dasharray="5 4"/>`;
+    const sobe = lin.flavio >= lin.lula;
+    h += `<text x="${X(100)}" y="${Y(lin.flavio) + (sobe ? -6 : 14)}" text-anchor="end">${fmtPct(lin.flavio, 1)}</text>`;
+    h += `<text x="${X(100)}" y="${Y(lin.lula) + (sobe ? 14 : -6)}" text-anchor="end">${fmtPct(lin.lula, 1)}</text>`;
   }
   let virada = null;
   for (let i = 1; i < pts.length; i++) {
@@ -469,7 +488,7 @@ function renderEvolucao(serie) {
     dicaEl.innerHTML = `${fmtHora(q.tse || q.ts)} · ${fmtPct(q.pct_apurado, 1)} apurado<br>Flávio ${fmtPct(shareF(q))} · Lula ${fmtPct(shareL(q))}`;
     const px = (cx / W) * r.width;
     dicaEl.style.left = Math.min(Math.max(0, px - dicaEl.offsetWidth / 2), r.width - dicaEl.offsetWidth) + "px";
-    dicaEl.style.top = "-6px";
+    dicaEl.style.top = "-34px";
   };
   svg.addEventListener("click", mostra);
   svg.addEventListener("pointermove", (ev) => { if (ev.pointerType === "mouse") mostra(ev); });
@@ -489,9 +508,9 @@ function renderCandidatos(p) {
     linhas = CAND.map((c) => ({ nome: c.curto, cor: c.cor, v: p.votos[c.k], pct: pctC(p, c.k) || 0 }));
   }
   const max = Math.max(...linhas.map((l) => l.pct), 1);
-  $("cands").innerHTML = linhas.map((c) => `<div class="linha-barra" style="--c:var(${c.cor})"><span class="lb-nome" translate="no" title="${esc(c.nome)}">${esc(c.nome)}</span>
-      <span class="lb-trilho"><span style="width:${(100 * c.pct) / max}%"></span></span>
-      <span class="lb-val"><b>${fmtPct(c.pct)}</b> ${fmtInt(c.v)}</span></div>`).join("");
+  $("cands").innerHTML = linhas.map((c) => `<div class="cand-linha" style="--c:var(${c.cor})"><span class="cand-nome" translate="no" title="${esc(c.nome)}"><span class="sw"></span>${esc(c.nome)}</span>
+      <span class="cand-trilho"><span style="width:${(100 * c.pct) / max}%"></span></span>
+      <span class="cand-val">${fmtPct(c.pct)}<small>${fmtInt(c.v)}</small></span></div>`).join("");
   $("cands-hora").textContent = `% dos votos válidos. Totalização do TSE: ${fmtHora(p.tse)}.`;
 }
 
@@ -517,25 +536,35 @@ function linhaLider(p) {
   const c = p.votos.flavio >= p.votos.lula ? CAND[0] : CAND[1];
   return `<span class="lider"><span class="sw" style="--c:var(${c.cor})"></span>${c.curto}</span>`;
 }
+let listaToda = false;
 function renderListaUF() {
   const lat = L();
   const pr = !T1() && S.base ? projecaoMunicipios(UFS) : null;
-  let rows = UFS.map((uf) => ({ uf, p: lat.uf[uf], falta: pr && pr.porUF[uf] ? pr.porUF[uf].faltam : null })).filter((r) => r.p);
+  const rows = UFS.map((uf) => ({ uf, p: lat.uf[uf], falta: pr && pr.porUF[uf] ? pr.porUF[uf].faltam : null })).filter((r) => r.p);
   const ord = {
     pct: (a, b) => b.p.pct_apurado - a.p.pct_apurado,
     nome: (a, b) => NOME_UF[a.uf].localeCompare(NOME_UF[b.uf], "pt-BR"),
-    margem: (a, b) => (margem(b.p) ?? 0) - (margem(a.p) ?? 0),
+    margem: (a, b) => Math.abs(margem(b.p) ?? 0) - Math.abs(margem(a.p) ?? 0),
     restante: (a, b) => (b.falta ?? 0) - (a.falta ?? 0),
-  }[S.ordem];
+  }[T1() && S.ordem === "pct" ? "margem" : S.ordem];
   rows.sort(ord);
-  $("lista-uf").innerHTML = rows.map((r) => {
+  // No celular, 6 linhas e "Ver todos"; no desktop a lista rola ao lado do mapa
+  const largo = matchMedia("(min-width: 1000px)").matches;
+  const vis = !listaToda && !largo ? rows.slice(0, 6) : rows;
+  const sel = new Set(nivel() === "br" ? [] : ufsDoLocal());
+  $("lista-uf").innerHTML = vis.map((r) => {
     const cor = !dois(r.p) ? "--sem" : r.p.votos.flavio >= r.p.votos.lula ? "--flavio" : "--lula";
-    const extra = S.ordem === "restante" && r.falta != null ? `${fmtInt(r.falta)} a apurar` : dois(r.p) ? `${linhaLider(r.p).replace(/<[^>]+>/g, "")} +${NF[1].format(Math.abs(margem(r.p)))}` : "sem votos";
-    return `<button type="button" class="linha-barra" data-uf="${r.uf}" style="--c:var(${cor})">
-      <span class="lb-nome"><span class="sw"></span>${NOME_UF[r.uf]}</span>
-      <span class="lb-trilho"><span style="width:${r.p.pct_apurado}%"></span></span>
-      <span class="lb-val"><b>${fmtPct(r.p.pct_apurado, 1)}</b> ${esc(extra)}</span></button>`;
+    const lider = !dois(r.p) ? "sem votos" : `${r.p.votos.flavio >= r.p.votos.lula ? "Flávio" : "Lula"} +${NF[1].format(Math.abs(margem(r.p)))}`;
+    const val = T1() ? `${fmtPct(Math.max(pctC(r.p, "flavio") || 0, pctC(r.p, "lula") || 0), 1)}<small>do líder</small>`
+      : S.ordem === "restante" && r.falta != null ? `${fmtInt(r.falta)}<small>a apurar</small>` : `${fmtPct(r.p.pct_apurado, 1)}<small>apurado</small>`;
+    return `<button type="button" class="uf-linha${sel.has(r.uf) ? " sel" : ""}" data-uf="${r.uf}" aria-label="${esc(NOME_UF[r.uf])}: ${esc(lider)}, ${fmtPct(r.p.pct_apurado, 1)} apurado">
+      <span class="uf-nome"><span class="sw" style="--c:var(${cor})"></span>${NOME_UF[r.uf]}</span>
+      <span class="meta">${esc(lider)}</span>
+      <span class="uf-val">${val}</span></button>`;
   }).join("");
+  const btn = $("ver-todos");
+  btn.hidden = largo || rows.length <= 6;
+  btn.textContent = listaToda ? "Mostrar menos" : `Ver todos os ${rows.length}`;
 }
 
 function base1tDe(sel) {
@@ -579,19 +608,18 @@ function renderMunTabela() {
   rows.sort((a, b) => (col === "nome" ? a.nome.localeCompare(b.nome, "pt-BR") : val(a) - val(b)) * dir);
   const th = (c, txt) => `<th aria-sort="${col === c ? (dir > 0 ? "ascending" : "descending") : "none"}"><button type="button" data-col="${c}">${txt}${col === c ? (dir > 0 ? " ↑" : " ↓") : ""}</button></th>`;
   t.innerHTML = `<thead><tr>${th("nome", "Município")}${th("pct", "Apurado")}${th("f", "Flávio")}${th("l", "Lula")}${th("lider", "Líder")}</tr></thead><tbody>` +
-    (rows.length ? rows.map((r) => `<tr class="clica" data-mun="${r.cd}"><td>${esc(r.nome)}</td><td>${fmtPct(r.p.pct_apurado, 1)}</td><td>${fmtPct(pctC(r.p, "flavio"), 1)}</td><td>${fmtPct(pctC(r.p, "lula"), 1)}</td><td>${linhaLider(r.p)}</td></tr>`).join("")
+    (rows.length ? rows.map((r) => `<tr class="clica" data-mun="${r.cd}"><td><button type="button" class="link-cel" data-mun="${r.cd}">${esc(r.nome)}</button></td><td>${fmtPct(r.p.pct_apurado, 1)}</td><td>${fmtPct(pctC(r.p, "flavio"), 1)}</td><td>${fmtPct(pctC(r.p, "lula"), 1)}</td><td>${linhaLider(r.p)}</td></tr>`).join("")
       : `<tr><td colspan="5">Nenhum município com esse nome.</td></tr>`) + "</tbody>";
 }
 
 function renderMeta() {
   const m = S.d[S.turno].meta || {};
   const st = $("status");
-  const txt = { aguardando: "Aguardando o início", apurando: "Apurando", finalizado: "Totalização final", encerrado: "Coleta encerrada" }[m.status] || (T1() ? "Carregando…" : "Sem dados ainda");
-  st.textContent = `${txt}${m.pct_apurado_br ? " · " + fmtPct(m.pct_apurado_br) : ""}`;
+  const txt = { aguardando: "aguardando o início", apurando: "apurando", finalizado: "final", encerrado: "coleta encerrada" }[m.status] || (T1() ? "carregando…" : "sem dados ainda");
+  st.textContent = `${T1() ? "1º turno, 4/10" : "2º turno, 25/10"} · ${txt}`;
   st.className = `status ${m.status || ""}`;
   $("rod-atual").textContent = fmtHora(m.ultima_coleta);
   $("rod-tse").textContent = fmtHora(m.ultima_totalizacao_tse);
-  $("turno-tag").textContent = T1() ? "1º turno, 4 de outubro" : "2º turno, 25 de outubro";
   document.body.classList.toggle("t1", T1());
   document.querySelectorAll("[data-turno]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.turno === S.turno)));
 }
@@ -602,7 +630,8 @@ async function renderTudo() {
   syncCombos();
   $("titulo-local").textContent = nomeLocal();
   if (!L()) {
-    $("placar").innerHTML = `<div class="duelo"><p class="sub">${T1() ? "Carregando o 1º turno…" : "O 2º turno ainda não tem votos publicados. A apuração começa às 17h; enquanto isso, veja o 1º turno."}</p></div>`;
+    $("achado").textContent = T1() ? "Carregando o 1º turno…" : "O 2º turno ainda não tem votos publicados. A apuração começa às 17h.";
+    $("placar").innerHTML = "";
     $("kpis").innerHTML = ""; $("kpis2").innerHTML = "";
     return;
   }
@@ -610,6 +639,7 @@ async function renderTudo() {
   const p = pontoAtual();
   const proj = projecaoLocal();
   renderPlacar(p, proj);
+  $("achado").textContent = achado(p, proj, T1() ? [] : S.serieAtual);
   renderMapa();
   renderCandidatos(p);
   renderListaUF();
@@ -619,6 +649,7 @@ async function renderTudo() {
   const serie = await carregaSerie();
   if (seq !== renderSeq || T1()) return;
   S.serieAtual = serie;
+  $("achado").textContent = achado(p, proj, serie);
   renderProjecao(renderEvolucao(serie), proj);
 }
 
@@ -681,6 +712,7 @@ function montaSeletor() {
   $("n-pontos").addEventListener("change", () => renderProjecao(renderEvolucao(S.serieAtual), projecaoLocal()));
   $("ordem").addEventListener("change", (e) => { S.ordem = e.target.value; renderListaUF(); });
   $("lista-uf").addEventListener("click", (e) => { const b = e.target.closest("[data-uf]"); if (b) selUF(b.dataset.uf, true); });
+  $("ver-todos").addEventListener("click", () => { listaToda = !listaToda; renderListaUF(); });
   $("filtro-mun").addEventListener("input", renderMunTabela);
   $("t-mun").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-col]");
@@ -693,18 +725,23 @@ function montaSeletor() {
     if (tr) selecionar({ mun: tr.dataset.mun }, true);
   });
   let rz;
-  addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => { if (!T1() && S.serieAtual) renderEvolucao(S.serieAtual); }, 200); });
+  addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => { if (L()) renderListaUF(); if (!T1() && S.serieAtual) renderEvolucao(S.serieAtual); }, 200); });
 }
 
 /* ---------- tema ---------- */
+function corDaBarra() {
+  const cor = cssVar("--ground");
+  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => { m.setAttribute("content", cor); m.removeAttribute("media"); });
+}
 function montaTema() {
   let salvo = null;
   try { salvo = localStorage.getItem("tema"); } catch (e) { /* sem storage */ }
-  if (salvo) document.documentElement.dataset.theme = salvo;
+  if (salvo) { document.documentElement.dataset.theme = salvo; corDaBarra(); }
   $("tema").addEventListener("click", () => {
     const novo = getComputedStyle(document.documentElement).colorScheme.includes("dark") ? "light" : "dark";
     document.documentElement.dataset.theme = novo;
     try { localStorage.setItem("tema", novo); } catch (e) { /* sem storage */ }
+    corDaBarra();
     renderTudo();
   });
 }
