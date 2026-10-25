@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Apuração 2º turno 2026 – Presidente</title>
+<meta name="description" content="Apuração do 2º turno para Presidente 2026 (Flávio Bolsonaro x Lula) com histórico da evolução, por Brasil, região, UF e município.">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js" defer></script>
+<script src="app.js" defer></script>
+</head>
+<body>
+<header class="topo">
+  <div class="wrap topo-in">
+    <h1>Apuração · 2º turno Presidente 2026</h1>
+    <div class="topo-acoes">
+      <span id="status" class="status">carregando…</span>
+      <button id="tema" class="btn-icone" type="button" aria-label="Alternar tema claro/escuro">◐</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="aviso-teste" class="aviso" hidden>Modo TESTE: dados sintéticos gerados a partir do 1º turno.</div>
+
+  <section class="seletor" aria-label="Escolha do local">
+    <label>Nível
+      <select id="sel-nivel">
+        <option value="br">Brasil</option>
+        <option value="regiao">Região</option>
+        <option value="uf">UF</option>
+        <option value="mun">Município</option>
+      </select>
+    </label>
+    <label id="lbl-regiao" hidden>Região <select id="sel-regiao"></select></label>
+    <label id="lbl-uf" hidden>UF <select id="sel-uf"></select></label>
+    <label id="lbl-mun" hidden class="cresce">Município
+      <input id="busca-mun" list="lista-mun" placeholder="Digite o nome…" autocomplete="off">
+      <datalist id="lista-mun"></datalist>
+    </label>
+  </section>
+
+  <h2 id="titulo-local" class="titulo-local">Brasil</h2>
+
+  <section id="cards" class="cards" aria-live="polite"></section>
+
+  <section class="painel">
+    <div class="painel-cab">
+      <h3>Evolução: % dos válidos × % apurado</h3>
+      <label class="mini">Projeção linear (últimos N pontos)
+        <input id="n-pontos" type="number" min="3" max="50" value="10">
+      </label>
+    </div>
+    <div id="g-evolucao" class="grafico"></div>
+    <p id="virada" class="nota"></p>
+  </section>
+
+  <section class="painel">
+    <h3>Foto atual</h3>
+    <div id="foto"></div>
+    <p id="foto-hora" class="nota"></p>
+  </section>
+
+  <section class="painel">
+    <div class="painel-cab">
+      <h3>Projeção para 100% <span class="selo-aviso">estimativa não oficial</span></h3>
+      <details class="info">
+        <summary aria-label="Por que as projeções diferem">i</summary>
+        <p>A <b>linear</b> extrapola a tendência recente da margem conforme a apuração avança. Ela supõe que
+        os votos que faltam se parecem com os últimos apurados.</p>
+        <p>A <b>ponderada</b> soma, município a município, os votos que ainda faltam (eleitorado × comparecimento
+        esperado − votos já apurados) divididos pela tendência de cada local (ou pelo 1º turno ajustado pelo swing
+        da UF, onde quase nada foi apurado).</p>
+        <p>Elas divergem porque a ordem de apuração <b>não é aleatória</b>: regiões, capitais e o exterior chegam em
+        momentos diferentes, e cada uma vota de um jeito. A ponderada leva em conta <i>onde</i> faltam votos; a linear não.</p>
+      </details>
+    </div>
+    <div id="projecao" class="proj"></div>
+  </section>
+
+  <section class="painel">
+    <div class="painel-cab">
+      <h3>% apurado por UF e região</h3>
+      <label class="mini">Ordenar
+        <select id="ordem">
+          <option value="pct">% apurado</option>
+          <option value="nome">nome</option>
+          <option value="margem">margem</option>
+        </select>
+      </label>
+    </div>
+    <div id="g-pct-regiao" class="grafico baixo"></div>
+    <div id="g-pct-uf" class="grafico alto"></div>
+  </section>
+
+  <section class="painel">
+    <h3>Mapa por UF <span class="nota-inline">cor = líder, intensidade = margem</span></h3>
+    <div id="g-mapa" class="grafico mapa"></div>
+  </section>
+
+  <section class="painel">
+    <h3>Onde ainda tem voto para apurar</h3>
+    <div class="tabela-wrap"><table id="t-restantes" class="tabela"></table></div>
+  </section>
+
+  <section class="painel">
+    <h3>Comparação com o 1º turno <span class="nota-inline">divisão só entre os dois</span></h3>
+    <div class="tabela-wrap"><table id="t-1t" class="tabela"></table></div>
+  </section>
+
+  <section class="painel">
+    <h3>Brancos, nulos e abstenção</h3>
+    <div id="bna" class="cards cards-mini"></div>
+  </section>
+
+  <section class="painel" id="painel-mun">
+    <h3 id="titulo-mun">Municípios</h3>
+    <input id="filtro-mun" class="filtro" placeholder="Filtrar município…">
+    <div class="tabela-wrap tabela-rolagem"><table id="t-mun" class="tabela"></table></div>
+  </section>
+</main>
+
+<footer class="rodape">
+  <div class="wrap">
+    <p>Fonte: TSE (resultados.tse.jus.br). Última atualização: <span id="rod-atual">–</span> ·
+      última totalização do TSE: <span id="rod-tse">–</span>.</p>
+    <p>Os dados passam por um coletor e pelo cache do GitHub: pode haver <b>atraso de alguns minutos</b> em relação ao
+      site do TSE. A página se atualiza sozinha a cada 60 s. Projeções são estimativas não oficiais.</p>
+  </div>
+</footer>
+</body>
+</html>

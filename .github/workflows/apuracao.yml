@@ -1,0 +1,59 @@
+name: apuracao
+
+on:
+  workflow_dispatch:
+    inputs:
+      eleicao:
+        description: "Código da eleição (6258 = 2º turno; 6257 = 1º turno, para teste)"
+        default: "6258"
+      minutos:
+        description: "Duração máxima da coleta em minutos"
+        default: "350"
+      pasta:
+        description: "Subpasta na branch data (vazio = raiz; use p.ex. teste-6257 para testes)"
+        default: ""
+  schedule:
+    # Reserva: 19:45 UTC = 16:45 em Brasília, só em 25/out
+    - cron: "45 19 25 10 *"
+
+concurrency:
+  group: apuracao-coletor
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  coletar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout da branch data
+        uses: actions/checkout@v4
+        with:
+          ref: data
+          path: data-out
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r collector/requirements.txt
+
+      - name: Configura git
+        working-directory: data-out
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Coletor
+        env:
+          ELEICAO: ${{ inputs.eleicao || '6258' }}
+          MINUTOS: ${{ inputs.minutos || '350' }}
+          PASTA: ${{ inputs.pasta || '' }}
+        run: |
+          python collector/collect.py --eleicao "$ELEICAO" --minutos "$MINUTOS" \
+            --out "data-out/$PASTA" --repo data-out --push
