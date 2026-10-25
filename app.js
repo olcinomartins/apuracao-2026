@@ -550,6 +550,7 @@ async function renderTudo() {
   renderMeta();
   syncCombos();
   $("titulo-local").textContent = nomeLocal();
+  $("btn-limpar").disabled = nivel() === "br";
   document.querySelectorAll("[data-modo]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.modo === S.modo)));
   if (!L()) {
     $("s0").innerHTML = `<p class="achado">${T1() ? "Carregando o 1º turno…" : "O 2º turno ainda não tem votos publicados. A apuração começa às 17h; abra o filtro para ver o 1º turno."}</p>`;
@@ -652,6 +653,7 @@ function montaEventos() {
   const abreFiltro = (abrir) => { $("filtros").hidden = !abrir; $("btn-filtro").setAttribute("aria-expanded", String(abrir)); };
   $("btn-filtro").addEventListener("click", () => abreFiltro($("filtros").hidden));
   $("fechar-filtro").addEventListener("click", () => abreFiltro(false));
+  $("btn-limpar").addEventListener("click", () => { abreFiltro(false); selecionar({ regiao: null, uf: null, mun: null }); irPara(0); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("filtros").hidden) abreFiltro(false); });
   document.querySelectorAll("[data-turno]").forEach((b) => b.addEventListener("click", () => trocaTurno(b.dataset.turno)));
   document.querySelectorAll("[data-modo]").forEach((b) => b.addEventListener("click", () => { S.modo = b.dataset.modo; renderTudo(); irPara(0); }));

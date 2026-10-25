@@ -20,6 +20,7 @@
   <symbol id="i-lupa" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="m20 20-4.2-4.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
   <symbol id="i-filtro" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
   <symbol id="i-seta" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-limpar" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
   <symbol id="i-esq" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="i-dir" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 </svg>
@@ -32,18 +33,17 @@
       <button type="button" role="tab" data-modo="geral" aria-controls="carrossel">Geral</button>
       <button type="button" role="tab" data-modo="regiao" aria-controls="carrossel">Por região</button>
     </div>
-    <button id="btn-filtro" class="btn-filtro" type="button" aria-expanded="false" aria-controls="filtros" aria-label="Filtrar local, turno e tema">
-      <svg aria-hidden="true"><use href="#i-filtro"/></svg><span>Filtro</span>
-    </button>
+    <div class="acoes-dir">
+      <button id="btn-limpar" class="btn-filtro btn-limpar" type="button" aria-label="Limpar filtro e voltar para Brasil" disabled>
+        <svg aria-hidden="true"><use href="#i-limpar"/></svg><span>Limpar</span>
+      </button>
+      <button id="btn-filtro" class="btn-filtro" type="button" aria-expanded="false" aria-controls="filtros" aria-label="Filtrar local e tema">
+        <svg aria-hidden="true"><use href="#i-filtro"/></svg><span>Filtro</span>
+      </button>
+    </div>
   </div>
   <section id="filtros" class="filtros" aria-label="Filtros" hidden>
     <div class="filtros-in">
-      <div class="filtro"><span class="rotulo">Turno</span>
-        <div class="seg seg-largo" role="tablist" aria-label="Turno">
-          <button type="button" role="tab" data-turno="t1">1º turno</button>
-          <button type="button" role="tab" data-turno="t2">2º turno</button>
-        </div>
-      </div>
       <div class="filtro"><span class="rotulo" id="rot-regiao">Região</span><div class="combo" id="cb-regiao" data-label="rot-regiao"></div></div>
       <div class="filtro"><span class="rotulo" id="rot-uf">Estado</span><div class="combo" id="cb-uf" data-label="rot-uf"></div></div>
       <div class="filtro"><span class="rotulo" id="rot-mun">Município</span><div class="combo" id="cb-mun" data-label="rot-mun"></div></div>
@@ -59,8 +59,14 @@
   <p id="aviso-teste" class="aviso" hidden>Modo teste: dados sintéticos gerados a partir do 1º turno.</p>
 
   <div class="cab">
-    <h1 id="titulo-local">Brasil</h1>
-    <p id="status" class="status" aria-live="polite">Carregando…</p>
+    <div class="cab-txt">
+      <h1 id="titulo-local">Brasil</h1>
+      <p id="status" class="status" aria-live="polite">Carregando…</p>
+    </div>
+    <div class="seg seg-turno" role="tablist" aria-label="Turno">
+      <button type="button" role="tab" data-turno="t1">1º turno</button>
+      <button type="button" role="tab" data-turno="t2">2º turno</button>
+    </div>
   </div>
 
   <nav class="abas" aria-label="Telas do carrossel">
