@@ -63,17 +63,16 @@
       <h1 id="titulo-local">Brasil</h1>
       <p id="status" class="status" aria-live="polite">Carregando…</p>
     </div>
+    <nav class="abas" aria-label="Telas do carrossel">
+      <button type="button" data-ir="0" aria-current="true">Apuração</button>
+      <button type="button" data-ir="1">Projeção</button>
+      <button type="button" data-ir="2">Histórico</button>
+    </nav>
     <div class="seg seg-turno" role="tablist" aria-label="Turno">
       <button type="button" role="tab" data-turno="t1">1º turno</button>
       <button type="button" role="tab" data-turno="t2">2º turno</button>
     </div>
   </div>
-
-  <nav class="abas" aria-label="Telas do carrossel">
-    <button type="button" data-ir="0" aria-current="true">Apuração</button>
-    <button type="button" data-ir="1">Projeção</button>
-    <button type="button" data-ir="2">Histórico</button>
-  </nav>
 
   <div class="carrossel-wrap">
     <button class="nav-seta esq" type="button" data-passo="-1" aria-label="Tela anterior"><svg aria-hidden="true"><use href="#i-esq"/></svg></button>
@@ -84,12 +83,7 @@
     </div>
     <button class="nav-seta dir" type="button" data-passo="1" aria-label="Próxima tela"><svg aria-hidden="true"><use href="#i-dir"/></svg></button>
   </div>
-  <div class="pontos" aria-hidden="true"><span></span><span></span><span></span></div>
+  <p class="rodape">Fonte: TSE · atualizado <span id="rod-atual">–</span> · totalização TSE <span id="rod-tse">–</span> · pode haver atraso de alguns minutos; projeções são estimativas não oficiais</p>
 </main>
-
-<footer class="rodape">
-  <p>Fonte: TSE. Atualizado <span id="rod-atual">–</span> · última totalização do TSE <span id="rod-tse">–</span>.
-  Pode haver atraso de alguns minutos. A página se atualiza sozinha a cada minuto. Projeções são estimativas não oficiais.</p>
-</footer>
 </body>
 </html>

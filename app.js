@@ -269,7 +269,14 @@ function blocoCandidatos(p, proj) {
       <div class="cand-linha"><div class="cand-trilho"><span style="width:${(out / max) * 100}%"></span></div><div class="cand-pct">${fmtPct(out)}</div></div>
       <div class="cand-votos">${fmtInt(p.validos - dois(p))} votos</div></div>`;
   }
-  return `<div class="cands">${h}</div>`;
+  // No celular: os dois lado a lado e uma barra dividida (o CSS escolhe qual mostrar)
+  const [a, b] = linhas;
+  const tot = (a.pct || 0) + (b.pct || 0);
+  const duelo = `<div class="duelo-m" aria-hidden="true"><div class="duelo-lados">
+      <div style="--c:var(${a.cor})"><small>${a.curto}</small><b>${a.pct == null ? "–" : fmtPct(a.pct)}</b></div>
+      <div style="--c:var(${b.cor})"><small>${b.curto}</small><b>${b.pct == null ? "–" : fmtPct(b.pct)}</b></div></div>
+    <div class="duelo-barra">${tot ? `<span style="--c:var(${a.cor});width:${a.pct}%"></span><span style="--c:var(${b.cor});width:${b.pct}%"></span>` : ""}</div></div>`;
+  return `<div class="cands">${h}</div>${duelo}`;
 }
 function achado(p, pr, serie) {
   if (!p || !dois(p)) return T1() ? "" : "A apuração começa às 17h. Até lá, veja o 1º turno no filtro.";
@@ -353,16 +360,17 @@ function blocoMapa(lat) {
     rot += `<text x="402" y="${c.ly + 3.5}" class="r-uf fora">${c.u.toUpperCase()} <tspan class="r-pct">${pctTxt(c.u)}</tspan></text>`;
   }
   rot += `<text x="340" y="392" class="r-uf fora">Exterior <tspan class="r-pct">${lat.uf.zz ? pctTxt("zz") : "–"}</tspan></text>`;
-  return `<div class="mapa"><svg viewBox="-4 -4 452 410" role="group" aria-label="Mapa do Brasil por estado: cor do líder e % de urnas apuradas">${h}${rot}</svg></div>
-    <p class="legenda"><span class="sw" style="--c:var(--lula)"></span>Lula à frente <span class="sw" style="--c:var(--flavio)"></span>Flávio à frente <span class="sw" style="--c:var(--sem)"></span>sem votos · número: % de urnas apuradas</p>`;
+  return `<div class="mapa"><svg viewBox="-4 -4 452 410" preserveAspectRatio="xMidYMid meet" role="group" aria-label="Mapa do Brasil por estado: cor do líder e % de urnas apuradas">${h}${rot}</svg></div>
+    <p class="legenda"><span class="sw" style="--c:var(--lula)"></span>Lula <span class="sw" style="--c:var(--flavio)"></span>Flávio <span class="sw" style="--c:var(--sem)"></span>sem votos · número = % de urnas apuradas</p>`;
 }
 
 /* ---------- gráfico de evolução (SVG, não captura o toque) ---------- */
 function svgEvolucao(serie, { compacto = false, margemSo = false } = {}) {
   const pts = serie.filter((q) => q.pct_apurado > 0 && dois(q) > 0);
-  const larg = (document.querySelector(".slide") || {}).clientWidth || 640;
-  const W = compacto ? 320 : Math.max(300, Math.min(1060, larg - 48));
-  const H = compacto ? 120 : W < 520 ? 210 : 280;
+  const sl = document.querySelector(".slide") || {};
+  const larg = sl.clientWidth || 640, altSlide = sl.clientHeight || 500;
+  const W = compacto ? 320 : Math.max(300, Math.min(1060, larg - 40));
+  const H = compacto ? 110 : Math.round(Math.max(150, Math.min(300, altSlide * 0.45)));
   const m = { l: compacto ? 30 : 36, r: compacto ? 6 : 12, t: 10, b: compacto ? 20 : 26 };
   const ys = margemSo ? pts.map(margem) : pts.flatMap((q) => [shareF(q), shareL(q)]);
   let lo, hi, passo;
@@ -469,30 +477,30 @@ function telaGeral(p, serie) {
   const lat = L();
   const pr = !T1() ? projecao(S.sel, false) : null;
   // 1. Apuração
-  $("s0").innerHTML = `<div class="apur"><div>
+  $("s0").innerHTML = `<div class="apur enche"><div class="apur-esq">
       ${blocoCandidatos(p)}
-      <p class="achado bloco">${achado(p, pr, serie)}</p>
-      <div class="bloco">${indicadores(p)}</div></div>
-    <div>${blocoMapa(lat)}</div></div>`;
+      <p class="achado achado-s0">${achado(p, pr, serie)}</p>
+      ${indicadores(p)}</div>
+    <div class="apur-dir">${blocoMapa(lat)}</div></div>`;
   // 2. Projeção ponderada pelo eleitorado
   if (T1()) {
     $("s1").innerHTML = `<h2>Projeção</h2><p class="sub">O 1º turno já terminou: o resultado da primeira tela é o final. A projeção funciona durante a apuração do 2º turno.</p>`;
   } else {
     const t = pr.tot, mF = t.flavio - t.lula, un = rotuloUnid(S.sel, false).toLowerCase();
     $("s1").innerHTML = `<h2>Se cada ${un} mantiver o percentual atual</h2>
-      <p class="sub">Estimativa não oficial. O percentual de hoje de cada ${un} é aplicado a todos os votos esperados ali (eleitorado × comparecimento), e a soma dá o resultado final.</p>
-      <div class="apur bloco"><div>${blocoCandidatos(null, t)}
-        <p class="achado bloco">${t.falta > 0 ? `${mF >= 0 ? "Flávio" : "Lula"} terminaria com cerca de ${fmtInt(Math.abs(mF))} votos de vantagem. Faltam cerca de ${fmtInt(t.falta)} votos válidos.` : "Apuração completa: a estimativa é igual ao resultado."}</p></div>
-        <div>${tabelaProjecao(pr, rotuloUnid(S.sel, false))}</div></div>`;
+      <p class="sub">Estimativa não oficial<span class="sub-longo">. O percentual de hoje de cada ${un} é aplicado a todos os votos esperados ali (eleitorado × comparecimento), e a soma dá o resultado final</span>.</p>
+      <div class="apur enche bloco"><div class="apur-esq">${blocoCandidatos(null, t)}
+        <p class="achado">${t.falta > 0 ? `${mF >= 0 ? "Flávio" : "Lula"} terminaria cerca de ${fmtInt(Math.abs(mF))} votos à frente<span class="sub-longo">. Faltam cerca de ${fmtInt(t.falta)} votos válidos</span>.` : "Apuração completa: a estimativa é igual ao resultado."}</p></div>
+        <div class="apur-dir enche">${tabelaProjecao(pr, rotuloUnid(S.sel, false))}</div></div>`;
   }
   // 3. Histórico
   if (T1()) {
     $("s2").innerHTML = `<h2>Histórico</h2><p class="sub">O 1º turno não tem histórico gravado (o coletor começou no 2º turno).</p>`;
   } else {
     const g = svgEvolucao(serie);
-    $("s2").innerHTML = `<h2>Evolução da apuração</h2><p class="sub">% dos válidos de cada candidato conforme as urnas foram apuradas. Toque no gráfico para ver um ponto.</p>
+    $("s2").innerHTML = `<h2>Evolução da apuração</h2><p class="sub">% dos válidos conforme as urnas foram apuradas<span class="sub-longo">. Toque no gráfico para ver um ponto</span>.</p>
       <div class="grafico">${g.svg}<div class="dica" hidden></div></div>
-      <div class="bloco">${tabelaMarcos(serie)}</div>`;
+      <div class="enche bloco">${tabelaMarcos(serie)}</div>`;
     ligaDica($("s2").querySelector(".grafico"), g);
   }
 }
@@ -511,7 +519,7 @@ function telaRegiao() {
       <span class="div-barra">${dois(p) ? `<span style="--c:var(--flavio);width:${f}%">${NF[1].format(f)}%</span>${T1() ? `<span style="--c:var(--outros);width:${Math.max(0, 100 - f - l)}%"></span>` : ""}<span style="--c:var(--lula);width:${l}%">${NF[1].format(l)}%</span>` : ""}</span>
       <span class="div-apur">${fmtPct(p.pct_apurado, 1)}<small>apurado</small></span></button>`;
   }).join("");
-  $("s0").innerHTML = `<h2>${esc(tit)}</h2><p class="sub">Flávio à esquerda, Lula à direita; ordenado pelo quanto já foi apurado. Toque numa linha para abrir o local.</p><div class="divs">${lin || '<p class="sub">Sem dados ainda.</p>'}</div>`;
+  $("s0").innerHTML = `<h2>${esc(tit)}</h2><p class="sub">Flávio à esquerda, Lula à direita; ordenado pelo quanto já foi apurado. Toque numa linha para abrir o local.</p><div class="enche"><div class="divs">${lin || '<p class="sub">Sem dados ainda.</p>'}</div></div>`;
   // 2. Projeção por região: quanto cada uma soma para a vantagem final
   if (T1()) {
     $("s1").innerHTML = `<h2>Projeção</h2><p class="sub">O 1º turno já terminou. A projeção por região funciona durante a apuração do 2º turno.</p>`;
@@ -522,9 +530,9 @@ function telaRegiao() {
     const saldo = (x) => { const s = x.flavio - x.lula; return `<td class="${s >= 0 ? "num-f" : "num-l"}">${s >= 0 ? "Flávio" : "Lula"} +${fmtInt(Math.abs(s))}</td>`; };
     $("s1").innerHTML = `<h2>Quanto cada ${un.toLowerCase()} soma no final</h2>
       <p class="sub">Mesmo cálculo da visão Geral: percentual atual × votos esperados. "Saldo" é a vantagem estimada que cada uma dá ao seu líder.</p>
-      <div class="tabela-wrap"><table class="tabela"><thead><tr><th>${un}</th><th>Apurado</th><th>Flávio</th><th>Lula</th><th>Saldo estimado</th></tr></thead><tbody>
+      <div class="enche bloco"><div class="tabela-wrap"><table class="tabela"><thead><tr><th>${un}</th><th>Apurado</th><th>Flávio</th><th>Lula</th><th>Saldo estimado</th></tr></thead><tbody>
       ${rows.map((x) => `<tr><td>${esc(nomeUnid(x.sel))}</td><td>${fmtPct(x.pct, 1)}</td><td class="num-f">${fmtInt(x.flavio)}</td><td class="num-l">${fmtInt(x.lula)}</td>${saldo(x)}</tr>`).join("")}
-      </tbody><tfoot><tr><td>Total</td><td></td><td class="num-f">${fmtInt(t.flavio)}</td><td class="num-l">${fmtInt(t.lula)}</td>${saldo(t)}</tr></tfoot></table></div>`;
+      </tbody><tfoot><tr><td>Total</td><td></td><td class="num-f">${fmtInt(t.flavio)}</td><td class="num-l">${fmtInt(t.lula)}</td>${saldo(t)}</tr></tfoot></table></div></div>`;
   }
   // 3. Histórico: um gráfico pequeno de margem por unidade
   if (T1()) {
@@ -532,7 +540,7 @@ function telaRegiao() {
     return;
   }
   const alvo = us.slice(0, n === "uf" ? 6 : 10);
-  $("s2").innerHTML = `<h2>Margem ao longo da apuração</h2><p class="sub">Diferença Flávio − Lula em pontos percentuais (F+ acima da linha, L+ abaixo) conforme o % apurado.</p><div class="multiplos" id="mult"></div>`;
+  $("s2").innerHTML = `<h2>Margem ao longo da apuração</h2><p class="sub">Diferença Flávio − Lula em pontos percentuais (F+ acima da linha, L+ abaixo) conforme o % apurado.</p><div class="enche"><div class="multiplos" id="mult"></div></div>`;
   Promise.all(alvo.map(async ({ u, p }) => ({ u, p, s: await carregaSerie(u) }))).then((itens) => {
     const el = $("mult");
     if (!el) return;
@@ -621,15 +629,11 @@ function irPara(i) {
   i = Math.max(0, Math.min(2, i));
   c.scrollTo({ left: i * (c.clientWidth + 16), behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
 }
-function ajustaAltura() {
-  const c = $("carrossel"), s = c.children[slideAtual()];
-  if (s) c.style.height = s.offsetHeight + "px";
-}
+function ajustaAltura() { /* a altura agora vem do CSS (cabe na janela) */ }
 function marcaSlide() {
   const i = slideAtual();
   ajustaAltura();
   document.querySelectorAll(".abas button").forEach((b, j) => (j === i ? b.setAttribute("aria-current", "true") : b.removeAttribute("aria-current")));
-  document.querySelectorAll(".pontos span").forEach((s, j) => s.classList.toggle("on", j === i));
   document.querySelector(".nav-seta.esq").disabled = i === 0;
   document.querySelector(".nav-seta.dir").disabled = i === 2;
 }
