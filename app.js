@@ -13,7 +13,7 @@ const BASE_T1 = QS.get("dados_t1") || (TESTE ? "./data-test/t1/" : `https://raw.
 const GEOJSON = "https://cdn.jsdelivr.net/gh/codeforgermany/click_that_hood@48ba05ad4c6969e3b3c25735492169227ae411f1/public/data/brazil-states.geojson";
 const REFRESH_MS = 60000;
 // Versão publicada; muda a cada deploy junto com versao.txt e os ?v= do index.html
-const VERSAO = "20261025201538";
+const VERSAO = "20261025202437";
 
 const REGIOES = {
   N: ["ac", "am", "ap", "pa", "ro", "rr", "to"],
@@ -53,6 +53,8 @@ const S = {
 // Cabeçalho clicável que ordena a tabela; a seta mostra a coluna e o sentido atuais
 function thOrd(estado, tabela, col, txt, cls = "") {
   const ativo = estado.col === col;
+  // txt pode ser [rótulo longo, rótulo curto para o celular]
+  if (Array.isArray(txt)) txt = `<span class="rot-lg">${txt[0]}</span><span class="rot-sm">${txt[1]}</span>`;
   return `<th class="${cls}" aria-sort="${ativo ? (estado.dir > 0 ? "ascending" : "descending") : "none"}"><button type="button" class="th-ord" data-ord-tab="${tabela}" data-ord-col="${col}">${txt}${ativo ? (estado.dir > 0 ? " ↑" : " ↓") : ""}</button></th>`;
 }
 function ordena(linhas, estado, val) {
@@ -72,7 +74,7 @@ const fmtInt = (x) => (x == null || isNaN(x) ? "–" : nf0.format(Math.round(x))
 const fmtCurto = (x) => {
   if (x == null || isNaN(x)) return "–";
   const a = Math.abs(x);
-  if (a >= 1e6) return NF[a >= 1e7 ? 1 : 2].format(x / 1e6) + " mi";
+  if (a >= 1e6) return NF[a >= 1e8 ? 0 : a >= 1e7 ? 1 : 2].format(x / 1e6) + " mi";
   if (a >= 1e4) return nf0.format(x / 1e3) + " mil";
   return nf0.format(x);
 };
@@ -205,7 +207,7 @@ function projetaUnidade(sel) {
   if (apur) { share = p.votos.flavio / apur; fonte = "atual"; }
   else if (b && b.f + b.l) { share = b.f / (b.f + b.l); fonte = "1º turno"; }
   else { share = 0.5; fonte = "sem dados"; }
-  return { sel, p, pct, esperado, apur, falta: esperado - apur, flavio: esperado * share, lula: esperado * (1 - share), share, fonte };
+  return { sel, p, pct, eleitorado: te, esperado, apur, falta: esperado - apur, flavio: esperado * share, lula: esperado * (1 - share), share, fonte };
 }
 function projecao(sel, paraRegiao) {
   const us = unidades(sel, paraRegiao);
@@ -213,13 +215,13 @@ function projecao(sel, paraRegiao) {
     // Regiões somam as projeções dos seus estados (mesmo método, na granularidade estadual)
     if (paraRegiao && nivel(sel) === "br" && u.regiao && !u.uf) {
       const filhos = REGIOES[u.regiao].map((uf) => projetaUnidade({ regiao: u.regiao, uf, mun: null }));
-      const t = filhos.reduce((a, x) => ({ esperado: a.esperado + x.esperado, apur: a.apur + x.apur, flavio: a.flavio + x.flavio, lula: a.lula + x.lula }), { esperado: 0, apur: 0, flavio: 0, lula: 0 });
+      const t = filhos.reduce((a, x) => ({ eleitorado: a.eleitorado + x.eleitorado, esperado: a.esperado + x.esperado, apur: a.apur + x.apur, flavio: a.flavio + x.flavio, lula: a.lula + x.lula }), { eleitorado: 0, esperado: 0, apur: 0, flavio: 0, lula: 0 });
       const p = pontoAtual(u);
       return { sel: u, p, pct: p ? p.pct_apurado : 0, ...t, falta: t.esperado - t.apur, share: t.flavio / (t.esperado || 1), fonte: "estados" };
     }
     return projetaUnidade(u);
   });
-  const tot = linhas.reduce((a, x) => ({ esperado: a.esperado + x.esperado, apur: a.apur + x.apur, flavio: a.flavio + x.flavio, lula: a.lula + x.lula }), { esperado: 0, apur: 0, flavio: 0, lula: 0 });
+  const tot = linhas.reduce((a, x) => ({ eleitorado: a.eleitorado + x.eleitorado, esperado: a.esperado + x.esperado, apur: a.apur + x.apur, flavio: a.flavio + x.flavio, lula: a.lula + x.lula }), { eleitorado: 0, esperado: 0, apur: 0, flavio: 0, lula: 0 });
   tot.falta = tot.esperado - tot.apur;
   return { linhas, tot };
 }
@@ -502,14 +504,14 @@ function tabelaProjecao(pr, rotulo) {
   const ck = S.candProj, cnome = ck === "flavio" ? "Flávio" : "Lula", ccls = ck === "flavio" ? "num-f" : "num-l";
   const pctDe = (x) => 100 * (ck === "flavio" ? x.share : 1 - x.share);
   const linhas = ordena(pr.linhas, S.ordProj, {
-    nome: (x) => nomeUnid(x.sel), pct: (x) => x.pct, share: pctDe, votos: (x) => x[ck], falta: (x) => x.falta,
+    nome: (x) => nomeUnid(x.sel), eleit: (x) => x.eleitorado, pct: (x) => x.pct, share: pctDe, votos: (x) => x[ck], falta: (x) => x.falta,
   });
   const lim = Math.min(60, linhas.length);
   const tr = linhas.slice(0, lim).map((x) => `<tr><td><button type="button" class="link-cel" data-ir-local='${esc(JSON.stringify(x.sel))}'>${esc(nomeUnid(x.sel))}</button>${x.fonte === "1º turno" ? '<span class="sub"> · 1º&nbsp;t.</span>' : ""}</td>
-      <td>${fmtPct(x.pct, 1)}</td><td class="${ccls}">${fmtPct(pctDe(x), 1)}</td><td class="${ccls}">${num(x[ck])}</td><td class="col-opc">${num(x.falta)}</td></tr>`).join("");
+      <td>${num(x.eleitorado)}</td><td>${fmtPct(x.pct, 1)}</td><td class="${ccls}">${fmtPct(pctDe(x), 1)}</td><td class="${ccls}">${num(x[ck])}</td><td class="col-opc">${num(x.falta)}</td></tr>`).join("");
   const t = pr.tot;
-  return `<div class="tabela-wrap"><table class="tabela"><colgroup><col class="c-nome"><col><col><col><col class="col-opc"></colgroup><thead><tr>${thOrd(S.ordProj, "proj", "nome", rotulo)}${thOrd(S.ordProj, "proj", "pct", "Apurado")}${thOrd(S.ordProj, "proj", "share", cnome + " %", ccls)}${thOrd(S.ordProj, "proj", "votos", "Votos", ccls)}${thOrd(S.ordProj, "proj", "falta", "Faltam", "col-opc")}</tr></thead>
-    <tbody>${tr}</tbody><tfoot><tr><td>Total${lim < linhas.length ? ` (${lim} de ${linhas.length})` : ""}</td><td></td><td class="${ccls}">${fmtPct((100 * t[ck]) / (t.flavio + t.lula || 1), 1)}</td><td class="${ccls}">${num(t[ck])}</td><td class="col-opc">${num(t.falta)}</td></tr></tfoot></table></div>`;
+  return `<div class="tabela-wrap"><table class="tabela"><colgroup><col class="c-nome"><col><col><col><col><col class="col-opc"></colgroup><thead><tr>${thOrd(S.ordProj, "proj", "nome", rotulo)}${thOrd(S.ordProj, "proj", "eleit", ["Eleitores", "Eleit."])}${thOrd(S.ordProj, "proj", "pct", ["Apurado", "Apur."])}${thOrd(S.ordProj, "proj", "share", [cnome + " %", "%"], ccls)}${thOrd(S.ordProj, "proj", "votos", "Votos", ccls)}${thOrd(S.ordProj, "proj", "falta", "Faltam", "col-opc")}</tr></thead>
+    <tbody>${tr}</tbody><tfoot><tr><td>Total${lim < linhas.length ? ` (${lim} de ${linhas.length})` : ""}</td><td>${num(t.eleitorado)}</td><td></td><td class="${ccls}">${fmtPct((100 * t[ck]) / (t.flavio + t.lula || 1), 1)}</td><td class="${ccls}">${num(t[ck])}</td><td class="col-opc">${num(t.falta)}</td></tr></tfoot></table></div>`;
 }
 function telaGeral(p, serie) {
   const lat = L();
@@ -564,15 +566,15 @@ function telaRegiao() {
   } else {
     const pr = projecao(S.sel, true);
     const rows = ordena(pr.linhas, S.ordReg, {
-      nome: (x) => nomeUnid(x.sel), pct: (x) => x.pct, flavio: (x) => x.flavio, lula: (x) => x.lula, saldo: (x) => Math.abs(x.flavio - x.lula),
+      nome: (x) => nomeUnid(x.sel), eleit: (x) => x.eleitorado, pct: (x) => x.pct, flavio: (x) => x.flavio, lula: (x) => x.lula, saldo: (x) => Math.abs(x.flavio - x.lula),
     }).slice(0, 40);
     const t = pr.tot, un = rotuloUnid(S.sel, true);
     const saldo = (x) => { const s = x.flavio - x.lula; return `<td class="${s >= 0 ? "num-f" : "num-l"}">${s >= 0 ? "F" : "L"} +${num(Math.abs(s))}</td>`; };
     $("s1").innerHTML = `<h2>Quanto cada ${un.toLowerCase()} soma no final</h2>
       <p class="sub">Mesmo cálculo da visão Geral: percentual atual × votos esperados. "Saldo" é a vantagem estimada que cada uma dá ao seu líder (F = Flávio, L = Lula).</p>
-      <div class="enche bloco"><div class="tabela-wrap"><table class="tabela t-saldo"><colgroup><col class="c-nome"><col class="col-opc"><col><col><col class="c-saldo"></colgroup><thead><tr>${thOrd(S.ordReg, "reg", "nome", un)}${thOrd(S.ordReg, "reg", "pct", "Apurado", "col-opc")}${thOrd(S.ordReg, "reg", "flavio", "Flávio", "num-f")}${thOrd(S.ordReg, "reg", "lula", "Lula", "num-l")}${thOrd(S.ordReg, "reg", "saldo", "Saldo")}</tr></thead><tbody>
-      ${rows.map((x) => `<tr><td>${esc(nomeUnid(x.sel))}</td><td class="col-opc">${fmtPct(x.pct, 1)}</td><td class="num-f">${num(x.flavio)}</td><td class="num-l">${num(x.lula)}</td>${saldo(x)}</tr>`).join("")}
-      </tbody><tfoot><tr><td>Total</td><td class="col-opc"></td><td class="num-f">${num(t.flavio)}</td><td class="num-l">${num(t.lula)}</td>${saldo(t)}</tr></tfoot></table></div></div>`;
+      <div class="enche bloco"><div class="tabela-wrap"><table class="tabela t-saldo"><colgroup><col class="c-nome"><col><col class="col-opc"><col><col><col class="c-saldo"></colgroup><thead><tr>${thOrd(S.ordReg, "reg", "nome", un)}${thOrd(S.ordReg, "reg", "eleit", ["Eleitores", "Eleit."])}${thOrd(S.ordReg, "reg", "pct", "Apurado", "col-opc")}${thOrd(S.ordReg, "reg", "flavio", "Flávio", "num-f")}${thOrd(S.ordReg, "reg", "lula", "Lula", "num-l")}${thOrd(S.ordReg, "reg", "saldo", "Saldo")}</tr></thead><tbody>
+      ${rows.map((x) => `<tr><td>${esc(nomeUnid(x.sel))}</td><td>${num(x.eleitorado)}</td><td class="col-opc">${fmtPct(x.pct, 1)}</td><td class="num-f">${num(x.flavio)}</td><td class="num-l">${num(x.lula)}</td>${saldo(x)}</tr>`).join("")}
+      </tbody><tfoot><tr><td>Total</td><td>${num(t.eleitorado)}</td><td class="col-opc"></td><td class="num-f">${num(t.flavio)}</td><td class="num-l">${num(t.lula)}</td>${saldo(t)}</tr></tfoot></table></div></div>`;
   }
   // 3. Histórico: um gráfico pequeno de margem por unidade
   if (T1()) {

@@ -220,8 +220,15 @@ main { flex: 1; min-height: 0; width: 100%; max-width: 1132px; margin: 0 auto; p
 .tabela-wrap { overflow-x: hidden; }
 .tabela { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .tabela col.c-nome { width: 34%; }
-.t-saldo col.c-nome { width: 27%; }
-.t-saldo col.c-saldo { width: 31%; }
+.t-saldo col.c-nome { width: 24%; }
+.t-saldo col.c-saldo { width: 26%; }
+@media (max-width: 520px) {
+  .tabela col.c-nome { width: 27%; }
+  .t-saldo col.c-nome { width: 22%; }
+  .tabela .rot-lg { display: none; }
+  .tabela .rot-sm { display: inline; }
+  .tabela th, .tabela td { padding: 7px 3px; font-size: 12.5px; }
+}
 .tabela td, .tabela th { overflow: hidden; text-overflow: ellipsis; }
 .tabela th, .tabela td { padding: 7px 8px; border-bottom: 1px solid var(--rule); text-align: right; white-space: nowrap; }
 .tabela th:first-child, .tabela td:first-child { text-align: left; padding-left: 0; white-space: normal; overflow-wrap: anywhere; }
@@ -231,6 +238,7 @@ main { flex: 1; min-height: 0; width: 100%; max-width: 1132px; margin: 0 auto; p
 .tabela .num-f { color: var(--flavio); }
 .tabela .num-l { color: var(--lula); }
 .lider { display: inline-flex; align-items: center; gap: 6px; }
+.rot-sm { display: none; }
 .th-ord { all: unset; cursor: pointer; color: inherit; font: inherit; display: inline-block; padding: 6px 0; margin: -6px 0; }
 .th-ord:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
 .th-ord:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
