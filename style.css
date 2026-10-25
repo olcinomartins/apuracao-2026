@@ -57,8 +57,8 @@ h3 { font-size: 1rem; }
 select, input { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; min-height: 38px; }
 .titulo-local { font-size: 1.35rem; margin: 6px 0 10px; }
 
-.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr)); gap: 10px; margin-bottom: 14px; }
+.card { min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
 .card .rot { font-size: .78rem; color: var(--ink-2); display: flex; align-items: center; gap: 6px; }
 .card .val { font-size: 1.6rem; font-weight: 700; line-height: 1.15; margin-top: 2px; }
 .card .sub { font-size: .8rem; color: var(--muted); }
@@ -93,7 +93,7 @@ select, input { font: inherit; color: var(--ink); background: var(--surface); bo
 .barra-fill { position: absolute; inset: 0 auto 0 0; background: var(--c); border-radius: 0 4px 4px 0; }
 .barra-txt { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); font-size: .82rem; font-weight: 600; color: var(--ink); background: var(--surface); padding: 0 6px; border-radius: 4px; }
 
-.proj { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
+.proj { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 10px; }
 .proj .card .val { font-size: 1.15rem; }
 .proj-linha { display: flex; justify-content: space-between; gap: 8px; font-size: .9rem; margin: 3px 0; }
 

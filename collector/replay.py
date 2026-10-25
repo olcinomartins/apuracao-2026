@@ -58,7 +58,7 @@ def main(base, out, passos, seed):
                 st = round(f * secoes)
                 f = st / secoes
                 share = fl / (fl + lu) if fl + lu else 0.5
-                share = min(0.99, max(0.01, share + 0.5 * (0.5 - share) * 0.1 + swing[uf]))
+                share = min(0.99, max(0.01, share - 0.03 + swing[uf]))
                 comp = round(c * f)
                 validos = round((vv + 0.6 * vn) * f)
                 flavio = round(validos * share)

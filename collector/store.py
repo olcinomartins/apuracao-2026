@@ -107,7 +107,8 @@ class Store:
             "br": last(self.br),
             "regiao": {r: last(s) for r, s in self.reg.items()},
             "uf": {u: last(s) for u, s in self.uf.items()},
-            "mun": {u: {cd: s[-1] for cd, s in m.items() if s} for u, m in self.mun.items()},
+            "mun": {u: {cd: {k: v for k, v in s[-1].items() if k != "ts"} for cd, s in m.items() if s}
+                    for u, m in self.mun.items()},
         }
 
     def flush(self, meta, force_meta=False):
