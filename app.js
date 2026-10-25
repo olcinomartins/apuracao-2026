@@ -13,7 +13,7 @@ const BASE_T1 = QS.get("dados_t1") || (TESTE ? "./data-test/t1/" : `https://raw.
 const GEOJSON = "https://cdn.jsdelivr.net/gh/codeforgermany/click_that_hood@48ba05ad4c6969e3b3c25735492169227ae411f1/public/data/brazil-states.geojson";
 const REFRESH_MS = 60000;
 // Versão publicada; muda a cada deploy junto com versao.txt e os ?v= do index.html
-const VERSAO = "20261025182131";
+const VERSAO = "20261025182300";
 
 const REGIOES = {
   N: ["ac", "am", "ap", "pa", "ro", "rr", "to"],
@@ -478,7 +478,7 @@ function rotuloUnid(sel, paraRegiao) {
 function tabelaProjecao(pr, rotulo) {
   const linhas = [...pr.linhas].sort((a, b) => b.falta - a.falta);
   const lim = Math.min(60, linhas.length);
-  const tr = linhas.slice(0, lim).map((x) => `<tr><td><button type="button" class="link-cel" data-ir-local='${esc(JSON.stringify(x.sel))}'>${esc(nomeUnid(x.sel))}</button>${x.fonte === "1º turno" ? '<span class="sub"> · 1º t.</span>' : ""}</td>
+  const tr = linhas.slice(0, lim).map((x) => `<tr><td><button type="button" class="link-cel" data-ir-local='${esc(JSON.stringify(x.sel))}'>${esc(nomeUnid(x.sel))}</button>${x.fonte === "1º turno" ? '<span class="sub"> · 1º&nbsp;t.</span>' : ""}</td>
       <td>${fmtPct(x.pct, 1)}</td><td class="num-f">${fmtPct(100 * x.share, 1)}</td><td class="col-opc">${num(x.esperado)}</td><td>${num(x.falta)}</td></tr>`).join("");
   const t = pr.tot;
   return `<div class="tabela-wrap"><table class="tabela"><colgroup><col class="c-nome"><col><col><col class="col-opc"><col></colgroup><thead><tr><th>${rotulo}</th><th>Apurado</th><th>Flávio</th><th class="col-opc">Esperados</th><th>Faltam</th></tr></thead>
