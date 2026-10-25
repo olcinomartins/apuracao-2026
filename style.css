@@ -231,6 +231,12 @@ main { flex: 1; min-height: 0; width: 100%; max-width: 1132px; margin: 0 auto; p
 .tabela .num-f { color: var(--flavio); }
 .tabela .num-l { color: var(--lula); }
 .lider { display: inline-flex; align-items: center; gap: 6px; }
+.th-ord { all: unset; cursor: pointer; color: inherit; font: inherit; display: inline-block; padding: 6px 0; margin: -6px 0; }
+.th-ord:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+.th-ord:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+th[aria-sort="ascending"] .th-ord, th[aria-sort="descending"] .th-ord { color: var(--text); font-weight: 600; }
+th.num-f .th-ord { color: var(--flavio); }
+th.num-l .th-ord { color: var(--lula); }
 .link-cel { all: unset; cursor: pointer; }
 .link-cel:hover { text-decoration: underline; text-underline-offset: 3px; }
 .link-cel:focus-visible { outline: 2px solid var(--focus); }
@@ -305,4 +311,30 @@ main { flex: 1; min-height: 0; width: 100%; max-width: 1132px; margin: 0 auto; p
 }
 .apur-esq { overflow: hidden; }
 @media (max-width: 959px) { .sub-longo { display: none; } }
+/* Celular deitado (tela larga e baixa): tudo compacto, placar à esquerda e mapa/tabela à direita */
+@media (orientation: landscape) and (max-height: 520px) {
+  .barra-in { min-height: 44px; padding-block: 4px; }
+  .seg { padding: 2px; }
+  .seg button { min-height: 30px; padding: 0 10px; }
+  .btn-filtro { min-height: 34px; }
+  main { padding-bottom: calc(4px + env(safe-area-inset-bottom, 0px)); }
+  .cab { margin: 4px 0 4px; grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: "txt abas turno"; }
+  .cab h1 { font-size: 18px; line-height: 22px; }
+  .status { font-size: 11px; line-height: 14px; }
+  .abas button { padding: 4px 10px; }
+  .seg-turno button { min-height: 28px; }
+  .slide { padding: 8px 12px; }
+  .slide h2 { font-size: 14px; line-height: 18px; }
+  .slide .sub, .rodape, .achado, .legenda, .aviso { display: none; }
+  .apur { grid-template-columns: minmax(0, 4fr) minmax(0, 6fr); grid-template-rows: minmax(0, 1fr); gap: 16px; }
+  .apur-esq { gap: 8px; justify-content: center; }
+  .cands { display: none; }
+  .duelo-m { display: block; }
+  .duelo-lados b { font-size: 22px; line-height: 26px; }
+  .indic div { padding: 4px 8px; }
+  .indic b { font-size: 15px; line-height: 20px; }
+  .bloco { margin-top: 6px; }
+  .tabela th, .tabela td { padding: 5px 6px; font-size: 12px; }
+  .grafico { margin-top: 4px; }
+}
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }

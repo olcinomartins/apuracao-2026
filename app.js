@@ -13,7 +13,7 @@ const BASE_T1 = QS.get("dados_t1") || (TESTE ? "./data-test/t1/" : `https://raw.
 const GEOJSON = "https://cdn.jsdelivr.net/gh/codeforgermany/click_that_hood@48ba05ad4c6969e3b3c25735492169227ae411f1/public/data/brazil-states.geojson";
 const REFRESH_MS = 60000;
 // Versão publicada; muda a cada deploy junto com versao.txt e os ?v= do index.html
-const VERSAO = "20261025182617";
+const VERSAO = "20261025183948";
 
 const REGIOES = {
   N: ["ac", "am", "ap", "pa", "ro", "rr", "to"],
@@ -46,7 +46,22 @@ const S = {
   municipios: {}, base: null, geo: null, series: {},
   sel: { regiao: null, uf: null, mun: null },
   candProj: "flavio",  // candidato cujos dados aparecem na tabela da projeção
+  ordProj: { col: "falta", dir: -1 },   // ordenação da tabela da projeção (Geral)
+  ordReg: { col: "saldo", dir: -1 },    // ordenação da tabela da projeção (Por região)
 };
+
+// Cabeçalho clicável que ordena a tabela; a seta mostra a coluna e o sentido atuais
+function thOrd(estado, tabela, col, txt, cls = "") {
+  const ativo = estado.col === col;
+  return `<th class="${cls}" aria-sort="${ativo ? (estado.dir > 0 ? "ascending" : "descending") : "none"}"><button type="button" class="th-ord" data-ord-tab="${tabela}" data-ord-col="${col}">${txt}${ativo ? (estado.dir > 0 ? " ↑" : " ↓") : ""}</button></th>`;
+}
+function ordena(linhas, estado, val) {
+  const { col, dir } = estado;
+  return [...linhas].sort((a, b) => {
+    const x = val[col](a), y = val[col](b);
+    return (typeof x === "string" ? x.localeCompare(y, "pt-BR") : x - y) * dir;
+  });
+}
 
 /* ---------- utilidades ---------- */
 const $ = (id) => document.getElementById(id);
@@ -311,9 +326,9 @@ function indicadores(p) {
   if (!p) return "";
   const bn = p.comparecimento ? (100 * (p.brancos + p.nulos)) / p.comparecimento : null;
   const dif = Math.abs(p.votos.flavio - p.votos.lula);
-  return `<div class="indic"><div><small>Urnas apuradas</small><b>${fmtPct(p.pct_apurado)}</b></div>
+  return `<div class="indic"><div><small>Apurado</small><b>${fmtPct(p.pct_apurado)}</b></div>
     <div><small>Diferença</small><b>${dois(p) ? fmtInt(dif) : "–"}</b></div>
-    <div><small>Brancos e nulos</small><b>${fmtPct(bn)}</b></div></div>`;
+    <div><small>Brancos/nulos</small><b>${fmtPct(bn)}</b></div></div>`;
 }
 
 /* ---------- mapa do Brasil (SVG) ---------- */
@@ -480,14 +495,16 @@ function rotuloUnid(sel, paraRegiao) {
   return "Município";
 }
 function tabelaProjecao(pr, rotulo) {
-  const linhas = [...pr.linhas].sort((a, b) => b.falta - a.falta);
-  const lim = Math.min(60, linhas.length);
   const ck = S.candProj, cnome = ck === "flavio" ? "Flávio" : "Lula", ccls = ck === "flavio" ? "num-f" : "num-l";
   const pctDe = (x) => 100 * (ck === "flavio" ? x.share : 1 - x.share);
+  const linhas = ordena(pr.linhas, S.ordProj, {
+    nome: (x) => nomeUnid(x.sel), pct: (x) => x.pct, share: pctDe, votos: (x) => x[ck], falta: (x) => x.falta,
+  });
+  const lim = Math.min(60, linhas.length);
   const tr = linhas.slice(0, lim).map((x) => `<tr><td><button type="button" class="link-cel" data-ir-local='${esc(JSON.stringify(x.sel))}'>${esc(nomeUnid(x.sel))}</button>${x.fonte === "1º turno" ? '<span class="sub"> · 1º&nbsp;t.</span>' : ""}</td>
       <td>${fmtPct(x.pct, 1)}</td><td class="${ccls}">${fmtPct(pctDe(x), 1)}</td><td class="${ccls}">${num(x[ck])}</td><td class="col-opc">${num(x.falta)}</td></tr>`).join("");
   const t = pr.tot;
-  return `<div class="tabela-wrap"><table class="tabela"><colgroup><col class="c-nome"><col><col><col><col class="col-opc"></colgroup><thead><tr><th>${rotulo}</th><th>Apurado</th><th class="${ccls}">${cnome} %</th><th class="${ccls}">${cnome} votos</th><th class="col-opc">Faltam</th></tr></thead>
+  return `<div class="tabela-wrap"><table class="tabela"><colgroup><col class="c-nome"><col><col><col><col class="col-opc"></colgroup><thead><tr>${thOrd(S.ordProj, "proj", "nome", rotulo)}${thOrd(S.ordProj, "proj", "pct", "Apurado")}${thOrd(S.ordProj, "proj", "share", cnome + " %", ccls)}${thOrd(S.ordProj, "proj", "votos", "Votos", ccls)}${thOrd(S.ordProj, "proj", "falta", "Faltam", "col-opc")}</tr></thead>
     <tbody>${tr}</tbody><tfoot><tr><td>Total${lim < linhas.length ? ` (${lim} de ${linhas.length})` : ""}</td><td></td><td class="${ccls}">${fmtPct((100 * t[ck]) / (t.flavio + t.lula || 1), 1)}</td><td class="${ccls}">${num(t[ck])}</td><td class="col-opc">${num(t.falta)}</td></tr></tfoot></table></div>`;
 }
 function telaGeral(p, serie) {
@@ -542,12 +559,14 @@ function telaRegiao() {
     $("s1").innerHTML = `<h2>Projeção</h2><p class="sub">O 1º turno já terminou. A projeção por região funciona durante a apuração do 2º turno.</p>`;
   } else {
     const pr = projecao(S.sel, true);
-    const rows = [...pr.linhas].sort((a, b) => Math.abs(b.flavio - b.lula) - Math.abs(a.flavio - a.lula)).slice(0, 40);
+    const rows = ordena(pr.linhas, S.ordReg, {
+      nome: (x) => nomeUnid(x.sel), pct: (x) => x.pct, flavio: (x) => x.flavio, lula: (x) => x.lula, saldo: (x) => Math.abs(x.flavio - x.lula),
+    }).slice(0, 40);
     const t = pr.tot, un = rotuloUnid(S.sel, true);
     const saldo = (x) => { const s = x.flavio - x.lula; return `<td class="${s >= 0 ? "num-f" : "num-l"}">${s >= 0 ? "F" : "L"} +${num(Math.abs(s))}</td>`; };
     $("s1").innerHTML = `<h2>Quanto cada ${un.toLowerCase()} soma no final</h2>
       <p class="sub">Mesmo cálculo da visão Geral: percentual atual × votos esperados. "Saldo" é a vantagem estimada que cada uma dá ao seu líder (F = Flávio, L = Lula).</p>
-      <div class="enche bloco"><div class="tabela-wrap"><table class="tabela t-saldo"><colgroup><col class="c-nome"><col class="col-opc"><col><col><col class="c-saldo"></colgroup><thead><tr><th>${un}</th><th class="col-opc">Apurado</th><th>Flávio</th><th>Lula</th><th>Saldo</th></tr></thead><tbody>
+      <div class="enche bloco"><div class="tabela-wrap"><table class="tabela t-saldo"><colgroup><col class="c-nome"><col class="col-opc"><col><col><col class="c-saldo"></colgroup><thead><tr>${thOrd(S.ordReg, "reg", "nome", un)}${thOrd(S.ordReg, "reg", "pct", "Apurado", "col-opc")}${thOrd(S.ordReg, "reg", "flavio", "Flávio", "num-f")}${thOrd(S.ordReg, "reg", "lula", "Lula", "num-l")}${thOrd(S.ordReg, "reg", "saldo", "Saldo")}</tr></thead><tbody>
       ${rows.map((x) => `<tr><td>${esc(nomeUnid(x.sel))}</td><td class="col-opc">${fmtPct(x.pct, 1)}</td><td class="num-f">${num(x.flavio)}</td><td class="num-l">${num(x.lula)}</td>${saldo(x)}</tr>`).join("")}
       </tbody><tfoot><tr><td>Total</td><td class="col-opc"></td><td class="num-f">${num(t.flavio)}</td><td class="num-l">${num(t.lula)}</td>${saldo(t)}</tr></tfoot></table></div></div>`;
   }
@@ -693,6 +712,13 @@ function montaEventos() {
   });
   // cliques dentro das telas (mapa, linhas, tabelas)
   c.addEventListener("click", (e) => {
+    const ob = e.target.closest("[data-ord-col]");
+    if (ob) {
+      const est = ob.dataset.ordTab === "proj" ? S.ordProj : S.ordReg, col = ob.dataset.ordCol;
+      est.dir = est.col === col ? -est.dir : col === "nome" ? 1 : -1;
+      est.col = col;
+      return renderTudo();
+    }
     const cb = e.target.closest("[data-cand]");
     if (cb) { S.candProj = cb.dataset.cand; return renderTudo(); }
     const g = e.target.closest("[data-uf]");
