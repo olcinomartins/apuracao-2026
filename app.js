@@ -13,7 +13,7 @@ const BASE_T1 = QS.get("dados_t1") || (TESTE ? "./data-test/t1/" : `https://raw.
 const GEOJSON = "https://cdn.jsdelivr.net/gh/codeforgermany/click_that_hood@48ba05ad4c6969e3b3c25735492169227ae411f1/public/data/brazil-states.geojson";
 const REFRESH_MS = 60000;
 // Versão publicada; muda a cada deploy junto com versao.txt e os ?v= do index.html
-const VERSAO = "20261025191346";
+const VERSAO = "20261025191839";
 
 const REGIOES = {
   N: ["ac", "am", "ap", "pa", "ro", "rr", "to"],
@@ -413,7 +413,10 @@ function svgEvolucao(serie, { compacto = false, margemSo = false } = {}) {
     passo = hi - lo > 16 ? 5 : 2;
     lo = Math.max(0, Math.floor((lo - 0.5) / passo) * passo); hi = Math.min(100, Math.ceil((hi + 0.5) / passo) * passo);
   }
-  const X = (x) => m.l + (x / 100) * (W - m.l - m.r), Y = (y) => m.t + (1 - (y - lo) / (hi - lo)) * (H - m.t - m.b);
+  // Eixo X acompanha a apuração: 0–2%, 0–5%, 0–10%… até 0–100%, para a linha não ficar espremida no começo
+  const maxX = pts.length ? pts[pts.length - 1].pct_apurado : 0;
+  const xmax = [2, 5, 10, 25, 50, 100].find((v) => v >= maxX * 1.15) || 100;
+  const X = (x) => m.l + (x / xmax) * (W - m.l - m.r), Y = (y) => m.t + (1 - (y - lo) / (hi - lo)) * (H - m.t - m.b);
   const grid = cssVar("--grid");
   let h = "";
   const ref = margemSo ? 0 : 50;
@@ -422,7 +425,11 @@ function svgEvolucao(serie, { compacto = false, margemSo = false } = {}) {
     h += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(y)}" y2="${Y(y)}" stroke="${grid}" ${y === ref ? 'stroke-width="2"' : ""}/>`;
     h += `<text x="${m.l - 5}" y="${Y(y) + 4}" text-anchor="end">${margemSo ? (y > 0 ? "F+" : y < 0 ? "L+" : "") + Math.abs(y) : y + "%"}</text>`;
   }
-  for (const x of compacto ? [0, 50, 100] : [0, 25, 50, 75, 100]) h += `<text x="${X(x)}" y="${H - 6}" text-anchor="${x === 0 ? "start" : x === 100 ? "end" : "middle"}">${x}%</text>`;
+  // Marcas redondas no eixo X: passo conforme a escala
+  const passoX = compacto ? xmax / 2 : { 2: 0.5, 5: 1, 10: 2, 25: 5, 50: 10, 100: 25 }[xmax];
+  for (let x = 0; x <= xmax + 1e-9; x += passoX) {
+    h += `<text x="${X(x)}" y="${H - 6}" text-anchor="${x === 0 ? "start" : x >= xmax - 1e-9 ? "end" : "middle"}">${NF[x % 1 ? 1 : 0].format(x)}%</text>`;
+  }
   const cF = cssVar("--flavio"), cL = cssVar("--lula");
   const linha = (f, cor) => (pts.length ? `<polyline fill="none" stroke="${cor}" stroke-width="2" stroke-linejoin="round" points="${pts.map((q) => `${X(q.pct_apurado).toFixed(1)},${Y(f(q)).toFixed(1)}`).join(" ")}"/>` : "");
   if (margemSo) {
@@ -439,14 +446,14 @@ function svgEvolucao(serie, { compacto = false, margemSo = false } = {}) {
   if (!pts.length) h += `<text x="${W / 2}" y="${H / 2}" text-anchor="middle">Aguardando os primeiros votos…</text>`;
   if (!compacto) h += `<g class="cursor" visibility="hidden"><line y1="${m.t}" y2="${H - m.b}" stroke="${cssVar("--faint")}"/><circle r="4" fill="${cF}"/><circle r="4" fill="${cL}"/></g>`;
   const svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolução conforme a apuração">${h}</svg>`;
-  return { svg, pts, W, H, X, Y, m };
+  return { svg, pts, W, H, X, Y, m, xmax };
 }
 function ligaDica(el, g) {
   const svg = el.querySelector("svg"), dica = el.querySelector(".dica"), cur = svg && svg.querySelector(".cursor");
   if (!svg || !cur || !g.pts.length) return;
   const mostra = (ev) => {
     const r = svg.getBoundingClientRect();
-    const alvo = ((((ev.clientX - r.left) / r.width) * g.W - g.m.l) / (g.W - g.m.l - g.m.r)) * 100;
+    const alvo = ((((ev.clientX - r.left) / r.width) * g.W - g.m.l) / (g.W - g.m.l - g.m.r)) * g.xmax;
     let q = g.pts[0];
     for (const p of g.pts) if (Math.abs(p.pct_apurado - alvo) < Math.abs(q.pct_apurado - alvo)) q = p;
     const cx = g.X(q.pct_apurado);
@@ -465,21 +472,17 @@ function ligaDica(el, g) {
   svg.addEventListener("pointerleave", (ev) => { if (ev.pointerType === "mouse") { dica.hidden = true; cur.setAttribute("visibility", "hidden"); } });
 }
 function tabelaMarcos(serie) {
+  // Todas as atualizações gravadas pelo coletor, da mais recente para a mais antiga
   const pts = serie.filter((q) => dois(q));
-  if (!pts.length) return "";
-  const linha = (rot, q, forte) => {
-    const b = (x) => (forte ? `<b>${x}</b>` : x);
-    return `<tr><td>${b(rot)}</td><td class="num-f">${b(fmtPct(shareF(q)))}</td><td class="num-l">${b(fmtPct(shareL(q)))}</td>
-      <td class="${q.votos.flavio >= q.votos.lula ? "num-f" : "num-l"}">${q.votos.flavio >= q.votos.lula ? "F" : "L"} +${num(Math.abs(q.votos.flavio - q.votos.lula))}</td><td class="col-hora">${fmtHora(q.tse || q.ts).split(", ")[1] || "–"}</td></tr>`;
-  };
-  const linhas = [];
-  for (let t = 10; t <= 100; t += 10) {
-    const q = pts.find((p) => p.pct_apurado >= t);
-    if (!q) break;
-    linhas.push(linha(`${t}%`, q, false));
-  }
-  const u = pts[pts.length - 1];
-  if (u.pct_apurado < 100) linhas.push(linha(`Agora, ${fmtPct(u.pct_apurado, 1)}`, u, true));
+  if (!pts.length) return `<p class="sub">Aguardando as primeiras atualizações…</p>`;
+  const linhas = pts.slice().reverse().map((q, i) => {
+    const b = (x) => (i === 0 ? `<b>${x}</b>` : x);
+    const F = q.votos.flavio >= q.votos.lula;
+    return `<tr><td>${b(i === 0 ? `Agora, ${fmtPct(q.pct_apurado, 1)}` : fmtPct(q.pct_apurado, q.pct_apurado < 10 ? 2 : 1))}</td>
+      <td class="num-f">${b(fmtPct(shareF(q)))}</td><td class="num-l">${b(fmtPct(shareL(q)))}</td>
+      <td class="${F ? "num-f" : "num-l"}">${F ? "F" : "L"} +${num(Math.abs(q.votos.flavio - q.votos.lula))}</td>
+      <td class="col-hora">${fmtHora(q.tse || q.ts).split(", ")[1] || "–"}</td></tr>`;
+  });
   return `<div class="tabela-wrap"><table class="tabela"><colgroup><col class="c-nome"><col><col><col><col class="col-hora"></colgroup><thead><tr><th>Apurado</th><th>Flávio</th><th>Lula</th><th>Vantagem</th><th class="col-hora">Hora</th></tr></thead><tbody>${linhas.join("")}</tbody></table></div>`;
 }
 
@@ -533,7 +536,7 @@ function telaGeral(p, serie) {
     $("s2").innerHTML = `<h2>Histórico</h2><p class="sub">O 1º turno não tem histórico gravado (o coletor começou no 2º turno).</p>`;
   } else {
     const g = svgEvolucao(serie);
-    $("s2").innerHTML = `<h2>Evolução da apuração</h2><p class="sub">% dos válidos conforme as urnas foram apuradas<span class="sub-longo">. Toque no gráfico para ver um ponto</span>.</p>
+    $("s2").innerHTML = `<h2>Evolução da apuração</h2><p class="sub">% dos válidos a cada atualização do TSE<span class="sub-longo">. Toque no gráfico para ver um ponto</span>.</p>
       <div class="grafico">${g.svg}<div class="dica" hidden></div></div>
       <div class="enche bloco">${tabelaMarcos(serie)}</div>`;
     ligaDica($("s2").querySelector(".grafico"), g);
