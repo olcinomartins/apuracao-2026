@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#f2f4f7" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#eef0f3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <title>Apuração Presidente 2026</title>
-<meta name="description" content="Apuração para Presidente 2026 (Flávio Bolsonaro x Lula), 1º e 2º turno, com a evolução da contagem por Brasil, região, estado e município.">
+<meta name="description" content="Apuração para Presidente 2026 (Flávio Bolsonaro x Lula): mapa por estado, projeção ponderada pelo eleitorado e histórico da contagem.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://raw.githubusercontent.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='9' width='13' height='14' rx='2' fill='%232a62c9'/%3E%3Crect x='16' y='9' width='13' height='14' rx='2' fill='%23d03a2f'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="style.css">
 <script src="app.js" defer></script>
@@ -18,132 +18,72 @@
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <symbol id="i-lupa" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="m20 20-4.2-4.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
-  <symbol id="i-filtro" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-filtro" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
   <symbol id="i-seta" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-  <symbol id="i-tema" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></symbol>
+  <symbol id="i-esq" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-dir" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 </svg>
 <a class="pular" href="#conteudo">Pular para o conteúdo</a>
 
 <header class="barra">
-  <div class="wrap barra-in">
-    <p class="marca" translate="no">Apuração <span>Presidente 2026</span></p>
-    <div class="barra-acoes">
-      <div class="seg" role="tablist" aria-label="Turno">
-        <button type="button" role="tab" data-turno="t1">1º turno</button>
-        <button type="button" role="tab" data-turno="t2">2º turno</button>
-      </div>
-      <button id="tema" class="icone" type="button" aria-label="Alternar tema claro e escuro"><svg aria-hidden="true"><use href="#i-tema"/></svg></button>
+  <div class="barra-in">
+    <p class="marca" translate="no">Apuração <span>2026</span></p>
+    <div class="seg seg-modo" role="tablist" aria-label="Visão">
+      <button type="button" role="tab" data-modo="geral" aria-controls="carrossel">Geral</button>
+      <button type="button" role="tab" data-modo="regiao" aria-controls="carrossel">Por região</button>
     </div>
+    <button id="btn-filtro" class="btn-filtro" type="button" aria-expanded="false" aria-controls="filtros" aria-label="Filtrar local, turno e tema">
+      <svg aria-hidden="true"><use href="#i-filtro"/></svg><span>Filtro</span>
+    </button>
   </div>
+  <section id="filtros" class="filtros" aria-label="Filtros" hidden>
+    <div class="filtros-in">
+      <div class="filtro"><span class="rotulo">Turno</span>
+        <div class="seg seg-largo" role="tablist" aria-label="Turno">
+          <button type="button" role="tab" data-turno="t1">1º turno</button>
+          <button type="button" role="tab" data-turno="t2">2º turno</button>
+        </div>
+      </div>
+      <div class="filtro"><span class="rotulo" id="rot-regiao">Região</span><div class="combo" id="cb-regiao" data-label="rot-regiao"></div></div>
+      <div class="filtro"><span class="rotulo" id="rot-uf">Estado</span><div class="combo" id="cb-uf" data-label="rot-uf"></div></div>
+      <div class="filtro"><span class="rotulo" id="rot-mun">Município</span><div class="combo" id="cb-mun" data-label="rot-mun"></div></div>
+      <div class="filtros-pe">
+        <button id="tema" class="btn-texto" type="button">Tema claro/escuro</button>
+        <button id="fechar-filtro" class="btn-prim" type="button">Ver resultado</button>
+      </div>
+    </div>
+  </section>
 </header>
 
-<main id="conteudo" class="wrap">
+<main id="conteudo">
   <p id="aviso-teste" class="aviso" hidden>Modo teste: dados sintéticos gerados a partir do 1º turno.</p>
 
-  <div class="titulo">
-    <div class="titulo-txt">
-      <h1 id="titulo-local">Brasil</h1>
-      <p id="achado" class="achado" aria-live="polite">Carregando…</p>
-    </div>
-    <div class="titulo-acoes">
-      <p id="status" class="status"></p>
-      <button id="btn-filtro" class="btn btn-prim" type="button" aria-expanded="false" aria-controls="filtros">
-        <svg aria-hidden="true"><use href="#i-filtro"/></svg>Filtrar local
-      </button>
-    </div>
+  <div class="cab">
+    <h1 id="titulo-local">Brasil</h1>
+    <p id="status" class="status" aria-live="polite">Carregando…</p>
   </div>
-  <section id="filtros" class="filtros" aria-label="Escolha do local" hidden>
-    <div class="filtro"><span class="rotulo" id="rot-regiao">Região</span><div class="combo" id="cb-regiao" data-label="rot-regiao"></div></div>
-    <div class="filtro"><span class="rotulo" id="rot-uf">Estado</span><div class="combo" id="cb-uf" data-label="rot-uf"></div></div>
-    <div class="filtro filtro-largo"><span class="rotulo" id="rot-mun">Município</span><div class="combo" id="cb-mun" data-label="rot-mun"></div></div>
-  </section>
 
-  <section class="placar" aria-label="Resultado">
-    <div id="placar"></div>
-    <div id="kpis" class="kpis"></div>
-    <div id="kpis2" class="kpis kpis2"></div>
-  </section>
+  <nav class="abas" aria-label="Telas do carrossel">
+    <button type="button" data-ir="0" aria-current="true">Apuração</button>
+    <button type="button" data-ir="1">Projeção</button>
+    <button type="button" data-ir="2">Histórico</button>
+  </nav>
 
-  <section class="onde">
-    <div class="painel painel-mapa">
-      <div class="painel-cab">
-        <h2>Mapa por estado</h2>
-        <div class="seg seg-mini" role="tablist" aria-label="Visão do mapa">
-          <button type="button" role="tab" data-mapa="grade">Grade</button>
-          <button type="button" role="tab" data-mapa="geo">Mapa</button>
-          <button type="button" role="tab" data-mapa="ne">Nordeste</button>
-        </div>
-      </div>
-      <div id="mapa" class="mapa"></div>
-      <p class="legenda"><span class="sw" style="--c:var(--lula)"></span>Lula <span class="sw" style="--c:var(--flavio)"></span>Flávio <span class="sw" style="--c:var(--sem)"></span>sem votos · tom mais forte, margem maior</p>
+  <div class="carrossel-wrap">
+    <button class="nav-seta esq" type="button" data-passo="-1" aria-label="Tela anterior"><svg aria-hidden="true"><use href="#i-esq"/></svg></button>
+    <div id="carrossel" class="carrossel" tabindex="0" aria-roledescription="carrossel" aria-label="Resultados">
+      <section class="slide" id="s0" aria-label="Apuração"></section>
+      <section class="slide" id="s1" aria-label="Projeção"></section>
+      <section class="slide" id="s2" aria-label="Histórico"></section>
     </div>
-    <div class="painel painel-lista">
-      <div class="painel-cab">
-        <h2>Por estado</h2>
-        <label class="campo campo-mini">
-          <span class="vh">Ordenar por</span>
-          <select id="ordem" name="ordem" aria-label="Ordenar estados por">
-            <option value="pct">% apurado</option>
-            <option value="restante">a apurar</option>
-            <option value="margem">margem</option>
-            <option value="nome">nome</option>
-          </select>
-        </label>
-      </div>
-      <div id="lista-uf" class="lista-uf"></div>
-      <button id="ver-todos" class="link" type="button" hidden></button>
-    </div>
-  </section>
-
-  <section class="painel so-t2">
-    <div class="painel-cab">
-      <h2>Evolução da contagem</h2>
-      <details class="ctrl">
-        <summary class="btn btn-mini"><svg aria-hidden="true"><use href="#i-filtro"/></svg>Filtro</summary>
-        <div class="pop">
-          <label class="campo">Projeção linear com os últimos
-            <input id="n-pontos" name="n-pontos" type="number" inputmode="numeric" min="3" max="50" value="10" autocomplete="off"> pontos
-          </label>
-        </div>
-      </details>
-    </div>
-    <p class="sub">% dos válidos de cada candidato conforme a apuração avança. Tracejado: projeção linear até 100%, estimativa não oficial.</p>
-    <div id="g-evolucao" class="grafico"></div>
-    <p id="virada" class="sub"></p>
-  </section>
-
-  <section class="painel so-t1">
-    <h2>Todos os candidatos</h2>
-    <div id="cands" class="lista-cands"></div>
-    <p id="cands-hora" class="sub"></p>
-  </section>
-
-  <details class="dobra so-t2">
-    <summary><h2>Projeção para 100%</h2><span class="meta">estimativa não oficial</span></summary>
-    <div id="projecao" class="proj"></div>
-    <p class="sub">A linear estende a tendência recente da margem. A ponderada soma, município a município, os votos que ainda faltam
-    (eleitorado × comparecimento esperado − já apurados), divididos pela tendência de cada local ou, onde quase nada foi apurado, pelo
-    1º turno ajustado pelo swing do estado. Elas diferem porque a ordem de apuração não é aleatória: regiões, capitais e o exterior
-    chegam em horários diferentes e votam de jeitos diferentes.</p>
-  </details>
-
-  <details class="dobra" id="dobra-mun">
-    <summary><h2 id="titulo-mun">Municípios</h2><span class="meta" id="meta-mun"></span></summary>
-    <label class="busca"><svg aria-hidden="true"><use href="#i-lupa"/></svg><input id="filtro-mun" name="filtro-mun" type="search" placeholder="Buscar município…" autocomplete="off" spellcheck="false" aria-label="Buscar município"></label>
-    <div class="tabela-wrap"><table id="t-mun" class="tabela"></table></div>
-  </details>
-
-  <details class="dobra so-t2">
-    <summary><h2>Comparação com o 1º turno</h2><span class="meta">divisão só entre os dois</span></summary>
-    <div class="tabela-wrap"><table id="t-1t" class="tabela"></table></div>
-  </details>
+    <button class="nav-seta dir" type="button" data-passo="1" aria-label="Próxima tela"><svg aria-hidden="true"><use href="#i-dir"/></svg></button>
+  </div>
+  <div class="pontos" aria-hidden="true"><span></span><span></span><span></span></div>
 </main>
 
 <footer class="rodape">
-  <div class="wrap">
-    <p>Fonte: TSE. Atualizado <span id="rod-atual">–</span> · última totalização do TSE <span id="rod-tse">–</span>.</p>
-    <p>Pode haver atraso de alguns minutos em relação ao site do TSE. A página se atualiza sozinha a cada minuto.</p>
-  </div>
+  <p>Fonte: TSE. Atualizado <span id="rod-atual">–</span> · última totalização do TSE <span id="rod-tse">–</span>.
+  Pode haver atraso de alguns minutos. A página se atualiza sozinha a cada minuto. Projeções são estimativas não oficiais.</p>
 </footer>
 </body>
 </html>
