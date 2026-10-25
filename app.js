@@ -13,7 +13,7 @@ const BASE_T1 = QS.get("dados_t1") || (TESTE ? "./data-test/t1/" : `https://raw.
 const GEOJSON = "https://cdn.jsdelivr.net/gh/codeforgermany/click_that_hood@48ba05ad4c6969e3b3c25735492169227ae411f1/public/data/brazil-states.geojson";
 const REFRESH_MS = 60000;
 // Versão publicada; muda a cada deploy junto com versao.txt e os ?v= do index.html
-const VERSAO = "20261025182300";
+const VERSAO = "20261025182617";
 
 const REGIOES = {
   N: ["ac", "am", "ap", "pa", "ro", "rr", "to"],
@@ -45,6 +45,7 @@ const S = {
   d: { t2: { latest: null, meta: null }, t1: { latest: null, meta: null, cands: null } },
   municipios: {}, base: null, geo: null, series: {},
   sel: { regiao: null, uf: null, mun: null },
+  candProj: "flavio",  // candidato cujos dados aparecem na tabela da projeção
 };
 
 /* ---------- utilidades ---------- */
@@ -260,7 +261,7 @@ function Combo(el, { onChange, placeholder = "Buscar…", limite = 300 }) {
 }
 
 /* ---------- blocos reutilizáveis ---------- */
-function blocoCandidatos(p, proj) {
+function blocoCandidatos(p, proj, selecionavel) {
   // proj: {flavio, lula} → mostra a estimativa em vez da apuração
   const linhas = CAND.map((c) => {
     let pct, votos;
@@ -269,11 +270,15 @@ function blocoCandidatos(p, proj) {
     return { ...c, pct, votos };
   }).sort((a, b) => (b.pct || 0) - (a.pct || 0));
   const max = Math.max(60, ...linhas.map((l) => l.pct || 0));
-  let h = linhas.map((c) => `<div class="cand" style="--c:var(${c.cor})">
+  const abre = (c, cls) => (selecionavel
+    ? `<button type="button" class="${cls} cand-btn" data-cand="${c.k}" aria-pressed="${S.candProj === c.k}" style="--c:var(${c.cor})" aria-label="Ver os dados de ${c.nome} na tabela">`
+    : `<div class="${cls}" style="--c:var(${c.cor})">`);
+  const fecha = selecionavel ? "</button>" : "</div>";
+  let h = linhas.map((c) => `${abre(c, "cand")}
       <div class="cand-nome" translate="no"><span class="sw"></span>${c.nome} <small>${c.partido}</small></div>
       <div class="cand-linha"><div class="cand-trilho"><span style="width:${((c.pct || 0) / max) * 100}%"></span></div>
       <div class="cand-pct">${c.pct == null ? "–" : fmtPct(c.pct)}</div></div>
-      <div class="cand-votos">${fmtInt(c.votos)} votos${proj ? " estimados" : ""}</div></div>`).join("");
+      <div class="cand-votos">${fmtInt(c.votos)} votos${proj ? " estimados" : ""}</div>${fecha}`).join("");
   if (!proj && T1() && p && p.validos) {
     const out = Math.max(0, 100 - (pctC(p, "flavio") || 0) - (pctC(p, "lula") || 0));
     h += `<div class="cand" style="--c:var(--outros)"><div class="cand-nome"><span class="sw"></span>Outros candidatos</div>
@@ -283,9 +288,8 @@ function blocoCandidatos(p, proj) {
   // No celular: os dois lado a lado e uma barra dividida (o CSS escolhe qual mostrar)
   const [a, b] = linhas;
   const tot = (a.pct || 0) + (b.pct || 0);
-  const duelo = `<div class="duelo-m" aria-hidden="true"><div class="duelo-lados">
-      <div style="--c:var(${a.cor})"><small>${a.curto}</small><b>${a.pct == null ? "–" : fmtPct(a.pct)}</b></div>
-      <div style="--c:var(${b.cor})"><small>${b.curto}</small><b>${b.pct == null ? "–" : fmtPct(b.pct)}</b></div></div>
+  const lado = (c) => `${abre(c, "lado")}<small>${c.curto}</small><b>${c.pct == null ? "–" : fmtPct(c.pct)}</b>${fecha}`;
+  const duelo = `<div class="duelo-m"${selecionavel ? "" : ' aria-hidden="true"'}><div class="duelo-lados">${lado(a)}${lado(b)}</div>
     <div class="duelo-barra">${tot ? `<span style="--c:var(${a.cor});width:${a.pct}%"></span><span style="--c:var(${b.cor});width:${b.pct}%"></span>` : ""}</div></div>`;
   return `<div class="cands">${h}</div>${duelo}`;
 }
@@ -478,11 +482,13 @@ function rotuloUnid(sel, paraRegiao) {
 function tabelaProjecao(pr, rotulo) {
   const linhas = [...pr.linhas].sort((a, b) => b.falta - a.falta);
   const lim = Math.min(60, linhas.length);
+  const ck = S.candProj, cnome = ck === "flavio" ? "Flávio" : "Lula", ccls = ck === "flavio" ? "num-f" : "num-l";
+  const pctDe = (x) => 100 * (ck === "flavio" ? x.share : 1 - x.share);
   const tr = linhas.slice(0, lim).map((x) => `<tr><td><button type="button" class="link-cel" data-ir-local='${esc(JSON.stringify(x.sel))}'>${esc(nomeUnid(x.sel))}</button>${x.fonte === "1º turno" ? '<span class="sub"> · 1º&nbsp;t.</span>' : ""}</td>
-      <td>${fmtPct(x.pct, 1)}</td><td class="num-f">${fmtPct(100 * x.share, 1)}</td><td class="col-opc">${num(x.esperado)}</td><td>${num(x.falta)}</td></tr>`).join("");
+      <td>${fmtPct(x.pct, 1)}</td><td class="${ccls}">${fmtPct(pctDe(x), 1)}</td><td class="${ccls}">${num(x[ck])}</td><td class="col-opc">${num(x.falta)}</td></tr>`).join("");
   const t = pr.tot;
-  return `<div class="tabela-wrap"><table class="tabela"><colgroup><col class="c-nome"><col><col><col class="col-opc"><col></colgroup><thead><tr><th>${rotulo}</th><th>Apurado</th><th>Flávio</th><th class="col-opc">Esperados</th><th>Faltam</th></tr></thead>
-    <tbody>${tr}</tbody><tfoot><tr><td>Total${lim < linhas.length ? ` (${lim} de ${linhas.length})` : ""}</td><td></td><td class="num-f">${fmtPct((100 * t.flavio) / (t.flavio + t.lula || 1), 1)}</td><td class="col-opc">${num(t.esperado)}</td><td>${num(t.falta)}</td></tr></tfoot></table></div>`;
+  return `<div class="tabela-wrap"><table class="tabela"><colgroup><col class="c-nome"><col><col><col><col class="col-opc"></colgroup><thead><tr><th>${rotulo}</th><th>Apurado</th><th class="${ccls}">${cnome} %</th><th class="${ccls}">${cnome} votos</th><th class="col-opc">Faltam</th></tr></thead>
+    <tbody>${tr}</tbody><tfoot><tr><td>Total${lim < linhas.length ? ` (${lim} de ${linhas.length})` : ""}</td><td></td><td class="${ccls}">${fmtPct((100 * t[ck]) / (t.flavio + t.lula || 1), 1)}</td><td class="${ccls}">${num(t[ck])}</td><td class="col-opc">${num(t.falta)}</td></tr></tfoot></table></div>`;
 }
 function telaGeral(p, serie) {
   const lat = L();
@@ -499,8 +505,8 @@ function telaGeral(p, serie) {
   } else {
     const t = pr.tot, mF = t.flavio - t.lula, un = rotuloUnid(S.sel, false).toLowerCase();
     $("s1").innerHTML = `<h2>Se cada ${un} mantiver o percentual atual</h2>
-      <p class="sub">Estimativa não oficial<span class="sub-longo">. O percentual de hoje de cada ${un} é aplicado a todos os votos esperados ali (eleitorado × comparecimento), e a soma dá o resultado final</span>.</p>
-      <div class="apur enche bloco"><div class="apur-esq">${blocoCandidatos(null, t)}
+      <p class="sub">Estimativa não oficial. Toque num candidato para ver os dados dele na tabela<span class="sub-longo">. O percentual de hoje de cada ${un} é aplicado a todos os votos esperados ali (eleitorado × comparecimento), e a soma dá o resultado final</span>.</p>
+      <div class="apur enche bloco"><div class="apur-esq">${blocoCandidatos(null, t, true)}
         <p class="achado">${t.falta > 0 ? `${mF >= 0 ? "Flávio" : "Lula"} terminaria cerca de ${fmtInt(Math.abs(mF))} votos à frente<span class="sub-longo">. Faltam cerca de ${fmtInt(t.falta)} votos válidos</span>.` : "Apuração completa: a estimativa é igual ao resultado."}</p></div>
         <div class="apur-dir enche">${tabelaProjecao(pr, rotuloUnid(S.sel, false))}</div></div>`;
   }
@@ -687,6 +693,8 @@ function montaEventos() {
   });
   // cliques dentro das telas (mapa, linhas, tabelas)
   c.addEventListener("click", (e) => {
+    const cb = e.target.closest("[data-cand]");
+    if (cb) { S.candProj = cb.dataset.cand; return renderTudo(); }
     const g = e.target.closest("[data-uf]");
     if (g) return selecionar({ regiao: UF_REG[g.dataset.uf] || null, uf: g.dataset.uf, mun: null });
     const l = e.target.closest("[data-ir-local]");

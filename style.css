@@ -185,6 +185,14 @@ main { flex: 1; min-height: 0; width: 100%; max-width: 1132px; margin: 0 auto; p
   .status { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
   .status::before { display: inline-block; margin-right: 6px; vertical-align: 1px; }
 }
+/* candidato escolhido na projeção */
+.cand-btn { all: unset; box-sizing: border-box; display: block; cursor: pointer; border-radius: var(--radius-ctl); padding: 6px 8px; margin: -6px -8px;
+  border: 2px solid transparent; transition: border-color .15s, background-color .15s; }
+.cand-btn:hover { background: var(--raised); }
+.cand-btn[aria-pressed="true"] { border-color: var(--c); }
+.cand-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.duelo-lados .cand-btn { display: flex; flex-direction: column; margin: 0; padding: 4px 8px; }
+.duelo-lados .cand-btn:last-child { text-align: right; }
 .selo { display: inline-block; padding: 0 8px; line-height: 22px; border-radius: 99px; font-size: 12px; font-weight: 600; background: #dcfae5; color: #04250e; }
 
 .mapa { touch-action: pan-x pan-y; flex: 1; min-height: 0; }
