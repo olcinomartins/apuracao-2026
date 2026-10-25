@@ -50,6 +50,15 @@ const $ = (id) => document.getElementById(id);
 const nf0 = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
 const NF = [0, 1, 2].map((d) => new Intl.NumberFormat("pt-BR", { minimumFractionDigits: d, maximumFractionDigits: d }));
 const fmtInt = (x) => (x == null || isNaN(x) ? "–" : nf0.format(Math.round(x)));
+// Compacto para tabelas no celular: 9.632.309 → "9,63 mi"; 563.412 → "563 mil"
+const fmtCurto = (x) => {
+  if (x == null || isNaN(x)) return "–";
+  const a = Math.abs(x);
+  if (a >= 1e6) return NF[a >= 1e7 ? 1 : 2].format(x / 1e6) + " mi";
+  if (a >= 1e4) return nf0.format(x / 1e3) + " mil";
+  return nf0.format(x);
+};
+const num = (x) => `<span title="${fmtInt(x)}">${fmtCurto(x)}</span>`;
 const fmtPct = (x, d = 2) => (x == null || isNaN(x) ? "–" : NF[d].format(x) + "%");
 const fmtHoraF = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 const fmtHora = (iso) => {
@@ -439,7 +448,7 @@ function tabelaMarcos(serie) {
   const linha = (rot, q, forte) => {
     const b = (x) => (forte ? `<b>${x}</b>` : x);
     return `<tr><td>${b(rot)}</td><td class="num-f">${b(fmtPct(shareF(q)))}</td><td class="num-l">${b(fmtPct(shareL(q)))}</td>
-      <td class="${q.votos.flavio >= q.votos.lula ? "num-f" : "num-l"}">+${fmtInt(Math.abs(q.votos.flavio - q.votos.lula))}</td><td class="col-hora">${fmtHora(q.tse || q.ts).split(", ")[1] || "–"}</td></tr>`;
+      <td class="${q.votos.flavio >= q.votos.lula ? "num-f" : "num-l"}">${q.votos.flavio >= q.votos.lula ? "F" : "L"} +${num(Math.abs(q.votos.flavio - q.votos.lula))}</td><td class="col-hora">${fmtHora(q.tse || q.ts).split(", ")[1] || "–"}</td></tr>`;
   };
   const linhas = [];
   for (let t = 10; t <= 100; t += 10) {
@@ -449,7 +458,7 @@ function tabelaMarcos(serie) {
   }
   const u = pts[pts.length - 1];
   if (u.pct_apurado < 100) linhas.push(linha(`Agora, ${fmtPct(u.pct_apurado, 1)}`, u, true));
-  return `<div class="tabela-wrap"><table class="tabela"><thead><tr><th>Apurado</th><th>Flávio</th><th>Lula</th><th>Vantagem</th><th class="col-hora">Hora</th></tr></thead><tbody>${linhas.join("")}</tbody></table></div>`;
+  return `<div class="tabela-wrap"><table class="tabela"><colgroup><col class="c-nome"><col><col><col><col class="col-hora"></colgroup><thead><tr><th>Apurado</th><th>Flávio</th><th>Lula</th><th>Vantagem</th><th class="col-hora">Hora</th></tr></thead><tbody>${linhas.join("")}</tbody></table></div>`;
 }
 
 /* ---------- telas: GERAL ---------- */
@@ -467,11 +476,11 @@ function rotuloUnid(sel, paraRegiao) {
 function tabelaProjecao(pr, rotulo) {
   const linhas = [...pr.linhas].sort((a, b) => b.falta - a.falta);
   const lim = Math.min(60, linhas.length);
-  const tr = linhas.slice(0, lim).map((x) => `<tr><td><button type="button" class="link-cel" data-ir-local='${esc(JSON.stringify(x.sel))}'>${esc(nomeUnid(x.sel))}</button>${x.fonte === "1º turno" ? ' <span class="sub">(1º t.)</span>' : ""}</td>
-      <td>${fmtPct(x.pct, 1)}</td><td class="num-f">${fmtPct(100 * x.share, 1)}</td><td>${fmtInt(x.esperado)}</td><td>${fmtInt(x.falta)}</td></tr>`).join("");
+  const tr = linhas.slice(0, lim).map((x) => `<tr><td><button type="button" class="link-cel" data-ir-local='${esc(JSON.stringify(x.sel))}'>${esc(nomeUnid(x.sel))}</button>${x.fonte === "1º turno" ? '<span class="sub"> · 1º t.</span>' : ""}</td>
+      <td>${fmtPct(x.pct, 1)}</td><td class="num-f">${fmtPct(100 * x.share, 1)}</td><td class="col-opc">${num(x.esperado)}</td><td>${num(x.falta)}</td></tr>`).join("");
   const t = pr.tot;
-  return `<div class="tabela-wrap"><table class="tabela"><thead><tr><th>${rotulo}</th><th>Apurado</th><th>Flávio</th><th>Votos esperados</th><th>Faltam</th></tr></thead>
-    <tbody>${tr}</tbody><tfoot><tr><td>Total${lim < linhas.length ? ` (${lim} de ${linhas.length} na lista)` : ""}</td><td></td><td class="num-f">${fmtPct((100 * t.flavio) / (t.flavio + t.lula || 1), 1)}</td><td>${fmtInt(t.esperado)}</td><td>${fmtInt(t.falta)}</td></tr></tfoot></table></div>`;
+  return `<div class="tabela-wrap"><table class="tabela"><colgroup><col class="c-nome"><col><col><col class="col-opc"><col></colgroup><thead><tr><th>${rotulo}</th><th>Apurado</th><th>Flávio</th><th class="col-opc">Esperados</th><th>Faltam</th></tr></thead>
+    <tbody>${tr}</tbody><tfoot><tr><td>Total${lim < linhas.length ? ` (${lim} de ${linhas.length})` : ""}</td><td></td><td class="num-f">${fmtPct((100 * t.flavio) / (t.flavio + t.lula || 1), 1)}</td><td class="col-opc">${num(t.esperado)}</td><td>${num(t.falta)}</td></tr></tfoot></table></div>`;
 }
 function telaGeral(p, serie) {
   const lat = L();
@@ -527,12 +536,12 @@ function telaRegiao() {
     const pr = projecao(S.sel, true);
     const rows = [...pr.linhas].sort((a, b) => Math.abs(b.flavio - b.lula) - Math.abs(a.flavio - a.lula)).slice(0, 40);
     const t = pr.tot, un = rotuloUnid(S.sel, true);
-    const saldo = (x) => { const s = x.flavio - x.lula; return `<td class="${s >= 0 ? "num-f" : "num-l"}">${s >= 0 ? "Flávio" : "Lula"} +${fmtInt(Math.abs(s))}</td>`; };
+    const saldo = (x) => { const s = x.flavio - x.lula; return `<td class="${s >= 0 ? "num-f" : "num-l"}">${s >= 0 ? "F" : "L"} +${num(Math.abs(s))}</td>`; };
     $("s1").innerHTML = `<h2>Quanto cada ${un.toLowerCase()} soma no final</h2>
-      <p class="sub">Mesmo cálculo da visão Geral: percentual atual × votos esperados. "Saldo" é a vantagem estimada que cada uma dá ao seu líder.</p>
-      <div class="enche bloco"><div class="tabela-wrap"><table class="tabela"><thead><tr><th>${un}</th><th>Apurado</th><th>Flávio</th><th>Lula</th><th>Saldo estimado</th></tr></thead><tbody>
-      ${rows.map((x) => `<tr><td>${esc(nomeUnid(x.sel))}</td><td>${fmtPct(x.pct, 1)}</td><td class="num-f">${fmtInt(x.flavio)}</td><td class="num-l">${fmtInt(x.lula)}</td>${saldo(x)}</tr>`).join("")}
-      </tbody><tfoot><tr><td>Total</td><td></td><td class="num-f">${fmtInt(t.flavio)}</td><td class="num-l">${fmtInt(t.lula)}</td>${saldo(t)}</tr></tfoot></table></div></div>`;
+      <p class="sub">Mesmo cálculo da visão Geral: percentual atual × votos esperados. "Saldo" é a vantagem estimada que cada uma dá ao seu líder (F = Flávio, L = Lula).</p>
+      <div class="enche bloco"><div class="tabela-wrap"><table class="tabela t-saldo"><colgroup><col class="c-nome"><col class="col-opc"><col><col><col class="c-saldo"></colgroup><thead><tr><th>${un}</th><th class="col-opc">Apurado</th><th>Flávio</th><th>Lula</th><th>Saldo</th></tr></thead><tbody>
+      ${rows.map((x) => `<tr><td>${esc(nomeUnid(x.sel))}</td><td class="col-opc">${fmtPct(x.pct, 1)}</td><td class="num-f">${num(x.flavio)}</td><td class="num-l">${num(x.lula)}</td>${saldo(x)}</tr>`).join("")}
+      </tbody><tfoot><tr><td>Total</td><td class="col-opc"></td><td class="num-f">${num(t.flavio)}</td><td class="num-l">${num(t.lula)}</td>${saldo(t)}</tr></tfoot></table></div></div>`;
   }
   // 3. Histórico: um gráfico pequeno de margem por unidade
   if (T1()) {

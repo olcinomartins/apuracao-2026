@@ -208,9 +208,15 @@ main { flex: 1; min-height: 0; width: 100%; max-width: 1132px; margin: 0 auto; p
 .sub { font-size: 12px; line-height: 16px; color: var(--muted); margin-top: 2px; }
 .bloco { margin-top: 10px; }
 .tabela-wrap { overflow: auto; max-height: 460px; overscroll-behavior: contain; margin-top: 8px; }
-.tabela { width: 100%; border-collapse: collapse; }
+/* Tabelas sempre na largura do cartão: colunas fixas, nunca rolagem lateral */
+.tabela-wrap { overflow-x: hidden; }
+.tabela { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.tabela col.c-nome { width: 34%; }
+.t-saldo col.c-nome { width: 27%; }
+.t-saldo col.c-saldo { width: 31%; }
+.tabela td, .tabela th { overflow: hidden; text-overflow: ellipsis; }
 .tabela th, .tabela td { padding: 7px 8px; border-bottom: 1px solid var(--rule); text-align: right; white-space: nowrap; }
-.tabela th:first-child, .tabela td:first-child { text-align: left; padding-left: 0; white-space: normal; }
+.tabela th:first-child, .tabela td:first-child { text-align: left; padding-left: 0; white-space: normal; overflow-wrap: anywhere; }
 .tabela th { position: sticky; top: 0; background: var(--surface); color: var(--muted); font-size: 12px; font-weight: 500; }
 .tabela tfoot td { font-weight: 600; border-top: 1px solid var(--border); border-bottom: 0; }
 .tabela tbody tr { content-visibility: auto; contain-intrinsic-size: auto 39px; }
@@ -245,7 +251,10 @@ main { flex: 1; min-height: 0; width: 100%; max-width: 1132px; margin: 0 auto; p
 
 .rodape { flex: none; color: var(--muted); font-size: 11px; line-height: 14px; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-@media (max-width: 520px) { .col-hora { display: none; } }
+@media (max-width: 520px) {
+  .col-hora, .col-opc { display: none; }
+  .tabela th, .tabela td { padding: 7px 4px; font-size: 13px; }
+}
 @media (max-width: 420px) {
   .marca span { display: none; }
   .btn-filtro span { display: none; }
