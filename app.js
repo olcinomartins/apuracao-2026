@@ -13,7 +13,7 @@ const BASE_T1 = QS.get("dados_t1") || (TESTE ? "./data-test/t1/" : `https://raw.
 const GEOJSON = "https://cdn.jsdelivr.net/gh/codeforgermany/click_that_hood@48ba05ad4c6969e3b3c25735492169227ae411f1/public/data/brazil-states.geojson";
 const REFRESH_MS = 60000;
 // Versão publicada; muda a cada deploy junto com versao.txt e os ?v= do index.html
-const VERSAO = "20261025184906";
+const VERSAO = "20261025191346";
 
 const REGIOES = {
   N: ["ac", "am", "ap", "pa", "ro", "rr", "to"],
@@ -374,7 +374,8 @@ function blocoMapa(lat) {
     h += `<g class="uf${sel.has(uf) ? " sel" : ""}" data-uf="${uf}" tabindex="0" role="button" aria-label="${esc(dica)}"><title>${esc(dica)}</title><path d="${paths[uf]}" fill="${cor}"/></g>`;
   }
   const ink = (uf) => (dois(lat.uf[uf]) ? "#ffffff" : cssVar("--text"));
-  const pctTxt = (uf) => fmtPct(lat.uf[uf] ? lat.uf[uf].pct_apurado : 0, 0);
+  // Abaixo de 1% mostra uma casa decimal (0,4%), acima arredonda (38%)
+  const pctTxt = (uf) => { const v = lat.uf[uf] ? lat.uf[uf].pct_apurado : 0; return fmtPct(v, v > 0 && v < 1 ? 1 : 0); };
   for (const uf of Object.keys(centro)) {
     if (CHAMADAS.includes(uf)) continue;
     const [x, y] = centro[uf];
