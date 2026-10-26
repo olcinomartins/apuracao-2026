@@ -13,7 +13,7 @@ const BASE_T1 = QS.get("dados_t1") || (TESTE ? "./data-test/t1/" : `https://raw.
 const GEOJSON = "https://cdn.jsdelivr.net/gh/codeforgermany/click_that_hood@48ba05ad4c6969e3b3c25735492169227ae411f1/public/data/brazil-states.geojson";
 const REFRESH_MS = 60000;
 // Versão publicada; muda a cada deploy junto com versao.txt e os ?v= do index.html
-const VERSAO = "20261025220617";
+const VERSAO = "20261025224517";
 
 const REGIOES = {
   N: ["ac", "am", "ap", "pa", "ro", "rr", "to"],
@@ -136,11 +136,14 @@ function corIntensa(p) {
   const m = Math.abs(margem(p)), base = cssVar(p.votos.flavio >= p.votos.lula ? "--flavio" : "--lula");
   return mix(base, cssVar("--surface"), 0.72 - 0.72 * Math.min(1, m / 40));
 }
-// Mudança da margem entre os turnos (só entre os dois, em p.p.): positiva = a disputa andou para Flávio
+// Margem do 1º turno na mesma base dos cartões (% de todos os válidos): Flávio − Lula, em p.p.
+const margem1 = (p) => (p && p.validos ? (100 * (p.votos.flavio - p.votos.lula)) / p.validos : null);
+// Mudança da margem entre os turnos (positiva = a disputa andou para Flávio). Usa a mesma base dos cartões,
+// então é sempre o ganho de Flávio menos o ganho de Lula mostrados (ex.: +1,3 − 1,7 = Lula +0,4)
 function mudanca(sel) {
   const a = pontoAtual(sel, S.d.t1.latest), b = pontoAtual(sel, S.d.t2.latest);
-  if (!a || !b || !dois(a) || !dois(b)) return null;
-  return margem(b) - margem(a);
+  if (!a || !b || !a.validos || !dois(b)) return null;
+  return margem(b) - margem1(a);
 }
 // Mudança menor que 1 p.p. é "quase igual": cinza neutro, para não parecer que alguém virou
 const MUD_NEUTRA = 1;
@@ -150,7 +153,7 @@ function corMud(d) {
   const base = cssVar(d >= 0 ? "--flavio" : "--lula");
   return mix(base, cssVar("--surface"), 0.78 - 0.68 * Math.min(1, Math.abs(d) / 12));
 }
-const txtMud = (d) => (d == null ? "–" : Math.abs(d) < MUD_NEUTRA ? "=" : `${d >= 0 ? "F" : "L"}+${NF[Math.abs(d) < 10 ? 1 : 0].format(Math.abs(d))}`);
+const txtMud = (d) => (d == null ? "–" : Math.abs(d) < MUD_NEUTRA ? "≈0" : `${d >= 0 ? "F" : "L"}+${NF[Math.abs(d) < 10 ? 1 : 0].format(Math.abs(d))}`);
 const dois = (p) => (p ? p.votos.flavio + p.votos.lula : 0);
 // % de um candidato: no 2º turno sobre os dois; no 1º, sobre todos os válidos
 const pctC = (p, k) => {
@@ -814,7 +817,7 @@ function telaMudanca() {
   const lat1 = S.d.t1.latest, lat2 = S.d.t2.latest;
   if (!lat1 || !lat2) { $("s0").innerHTML = `<p class="achado">Carregando os dois turnos…</p>`; return; }
   const p1 = pontoAtual(S.sel, lat1), p2 = pontoAtual(S.sel, lat2);
-  const m1 = dois(p1) ? margem(p1) : null, m2 = dois(p2) ? margem(p2) : null;
+  const m1 = margem1(p1), m2 = dois(p2) ? margem(p2) : null;
   const d = m1 != null && m2 != null ? m2 - m1 : null;
   const lado = (m) => (m == null ? "–" : `${m >= 0 ? "Flávio" : "Lula"} +${NF[1].format(Math.abs(m))} p.p.`);
   const cartao = (c) => {
