@@ -13,7 +13,7 @@ const BASE_T1 = QS.get("dados_t1") || (TESTE ? "./data-test/t1/" : `https://raw.
 const GEOJSON = "https://cdn.jsdelivr.net/gh/codeforgermany/click_that_hood@48ba05ad4c6969e3b3c25735492169227ae411f1/public/data/brazil-states.geojson";
 const REFRESH_MS = 60000;
 // Versão publicada; muda a cada deploy junto com versao.txt e os ?v= do index.html
-const VERSAO = "20261025214450";
+const VERSAO = "20261025214705";
 
 const REGIOES = {
   N: ["ac", "am", "ap", "pa", "ro", "rr", "to"],
@@ -840,7 +840,7 @@ async function renderTudo() {
   renderMeta();
   syncCombos();
   $("titulo-local").textContent = nomeLocal();
-  const filtrado = nivel() !== "br" || S.modo !== "geral" || S.turno !== "t2";
+  const filtrado = nivel() !== "br";
   const bl = $("btn-limpar");
   if (filtrado && bl.disabled) { bl.classList.remove("pulsa"); void bl.offsetWidth; bl.classList.add("pulsa"); }
   bl.disabled = !filtrado;
@@ -954,14 +954,10 @@ function montaEventos() {
   const abreFiltro = (abrir) => { $("filtros").hidden = !abrir; $("btn-filtro").setAttribute("aria-expanded", String(abrir)); };
   $("btn-filtro").addEventListener("click", () => abreFiltro($("filtros").hidden));
   $("fechar-filtro").addEventListener("click", () => abreFiltro(false));
-  // Tira todos os filtros: volta para Brasil, visão Geral e 2º turno (se já tiver votos)
+  // Tira só o zoom de local (volta para Brasil); mantém o painel, a visão e a tela onde a pessoa está
   $("btn-limpar").addEventListener("click", () => {
     abreFiltro(false);
-    S.modo = "geral";
-    const br2 = S.d.t2.latest && S.d.t2.latest.br;
-    if (br2 && br2.pct_apurado > 0) S.turno = "t2";
     selecionar({ regiao: null, uf: null, mun: null });
-    irPara(0);
   });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("filtros").hidden) abreFiltro(false); });
   document.querySelectorAll("[data-turno]").forEach((b) => b.addEventListener("click", () => { trocaTurno(b.dataset.turno); irPara(0); }));
