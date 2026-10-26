@@ -13,7 +13,7 @@ const BASE_T1 = QS.get("dados_t1") || (TESTE ? "./data-test/t1/" : `https://raw.
 const GEOJSON = "https://cdn.jsdelivr.net/gh/codeforgermany/click_that_hood@48ba05ad4c6969e3b3c25735492169227ae411f1/public/data/brazil-states.geojson";
 const REFRESH_MS = 60000;
 // Versão publicada; muda a cada deploy junto com versao.txt e os ?v= do index.html
-const VERSAO = "20261025202437";
+const VERSAO = "20261025210530";
 
 const REGIOES = {
   N: ["ac", "am", "ap", "pa", "ro", "rr", "to"],
@@ -47,7 +47,9 @@ const S = {
   sel: { regiao: null, uf: null, mun: null },
   candProj: "flavio",  // candidato cujos dados aparecem na tabela da projeção
   ordProj: { col: "pct", dir: -1 },     // ordenação da tabela da projeção (Geral): maior % apurado primeiro
-  ordReg: { col: "pct", dir: -1 },      // ordenação da tabela da projeção (Por região): maior % apurado primeiro
+  ordReg: { col: "pct", dir: -1 },
+  candComp: "flavio",                   // candidato da tabela 1º × 2º
+  ordComp: { col: "var", dir: -1 },     // ordenação da tabela 1º × 2º: maior variação primeiro      // ordenação da tabela da projeção (Por região): maior % apurado primeiro
 };
 
 // Cabeçalho clicável que ordena a tabela; a seta mostra a coluna e o sentido atuais
@@ -346,44 +348,127 @@ function centroide(ring, P) {
 function projetaGeo(geo) {
   const k = Math.cos((-15 * Math.PI) / 180);
   const P = ([lon, lat]) => [(lon + 74) * k * 10, (6 - lat) * 10];
-  const paths = {}, centro = {};
+  const paths = {}, centro = {}, caixa = {};
   for (const f of geo.features) {
     const uf = String(f.properties.sigla).toLowerCase();
     const polys = f.geometry.type === "Polygon" ? [f.geometry.coordinates] : f.geometry.coordinates;
     let d = "", melhor = null;
+    const cx = [Infinity, Infinity, -Infinity, -Infinity];
     for (const poly of polys) {
-      for (const ring of poly) d += "M" + ring.map((c) => P(c).map((v) => v.toFixed(1)).join(",")).join("L") + "Z";
+      for (const ring of poly) {
+        d += "M" + ring.map((c) => {
+          const q = P(c);
+          cx[0] = Math.min(cx[0], q[0]); cx[1] = Math.min(cx[1], q[1]); cx[2] = Math.max(cx[2], q[0]); cx[3] = Math.max(cx[3], q[1]);
+          return q.map((v) => v.toFixed(1)).join(",");
+        }).join("L") + "Z";
+      }
       const c = centroide(poly[0], P);
       if (!melhor || c[2] > melhor[2]) melhor = c;
     }
-    paths[uf] = d; centro[uf] = [melhor[0], melhor[1]];
+    paths[uf] = d; centro[uf] = [melhor[0], melhor[1]]; caixa[uf] = cx;
   }
   // Ajustes finos de rótulo (formas irregulares)
   const desl = { go: [-6, 10], pa: [4, 6], ma: [2, 6], pi: [0, 4], ba: [4, 0], mg: [-4, 6], am: [0, 4], sc: [4, 0], to: [0, 4] };
   for (const [u, [dx, dy]] of Object.entries(desl)) if (centro[u]) centro[u] = [centro[u][0] + dx, centro[u][1] + dy];
-  return { paths, centro };
+  return { paths, centro, caixa, P };
+}
+
+/* ---------- municípios no mapa (malha do IBGE, carregada sob demanda por estado) ---------- */
+const MALHA_IBGE = (uf) => `https://servicodados.ibge.gov.br/api/v3/malhas/estados/${uf.toUpperCase()}?formato=application/vnd.geo%2Bjson&qualidade=minima&intrarregiao=municipio`;
+let IBGE = null;            // código IBGE → [uf, código TSE]
+const MALHAS = {};          // uf → [{cd, d}] já projetados
+const pedindo = {};
+async function carregaMalha(uf) {
+  if (MALHAS[uf] || pedindo[uf] || !S.geo) return;
+  pedindo[uf] = true;
+  try {
+    if (!IBGE) IBGE = await fetch("ibge.json").then((r) => r.json());
+    const g = await fetch(MALHA_IBGE(uf)).then((r) => r.json());
+    const P = S.geo.P;
+    MALHAS[uf] = g.features.map((f) => {
+      const id = IBGE[f.properties.codarea];
+      const polys = f.geometry.type === "Polygon" ? [f.geometry.coordinates] : f.geometry.coordinates;
+      const d = polys.map((poly) => poly.map((ring) => "M" + ring.map((c) => P(c).map((v) => v.toFixed(2)).join(",")).join("L") + "Z").join("")).join("");
+      return { cd: id && id[0] === uf ? id[1] : null, d };
+    });
+    renderTudo();
+  } catch (e) {
+    console.warn("malha do IBGE indisponível para", uf, e);
+  } finally {
+    pedindo[uf] = false;
+  }
+}
+function caixaDe(ufs) {
+  const c = [Infinity, Infinity, -Infinity, -Infinity];
+  for (const u of ufs) {
+    const b = S.geo.caixa[u];
+    if (!b) continue;
+    c[0] = Math.min(c[0], b[0]); c[1] = Math.min(c[1], b[1]); c[2] = Math.max(c[2], b[2]); c[3] = Math.max(c[3], b[3]);
+  }
+  const w = c[2] - c[0], h = c[3] - c[1], pad = Math.max(w, h) * 0.06;
+  return [c[0] - pad, c[1] - pad, w + 2 * pad, h + 2 * pad];
+}
+function blocoMapaEstado(lat, uf) {
+  // Mapa do estado com os municípios pintados pelo líder; toque num município para abri-lo
+  const mal = MALHAS[uf];
+  const vb = caixaDe([uf]);
+  const pts = lat.mun[uf] || {};
+  const k = vb[2] / 452;
+  const munSel = S.sel.mun;
+  let h = "";
+  if (!mal) {
+    carregaMalha(uf);
+    h = `<path d="${S.geo.paths[uf]}" fill="${cssVar(corLider(lat.uf[uf]))}" stroke="${cssVar("--surface")}" vector-effect="non-scaling-stroke"/>
+      <text x="${vb[0] + vb[2] / 2}" y="${vb[1] + vb[3] / 2}" text-anchor="middle" class="r-uf" style="font-size:${12 * k}px" fill="#fff">Carregando municípios…</text>`;
+  } else {
+    const ord = [...mal].sort((a, b) => (a.cd === munSel) - (b.cd === munSel));
+    for (const m of ord) {
+      const p = m.cd ? pts[m.cd] : null;
+      const nome = m.cd ? nomeMun(uf, m.cd) : "";
+      const dica = `${nome}: ${fmtPct(p ? p.pct_apurado : 0, 1)} apurado${p && dois(p) ? ` · Flávio ${fmtPct(pctC(p, "flavio"), 1)}, Lula ${fmtPct(pctC(p, "lula"), 1)}` : ""}`;
+      h += `<g class="uf mun${m.cd === munSel ? " sel" : ""}" ${m.cd ? `data-mun="${m.cd}" tabindex="0" role="button" aria-label="${esc(dica)}"` : ""}><title>${esc(dica)}</title><path d="${m.d}" fill="${cssVar(corLider(p))}"/></g>`;
+    }
+    if (munSel) {
+      const sel = mal.find((m) => m.cd === munSel);
+      if (sel) h += `<path d="${sel.d}" fill="none" stroke="${cssVar("--text")}" stroke-width="2.5" vector-effect="non-scaling-stroke" pointer-events="none"/>`;
+    }
+  }
+  return `<div class="mapa"><svg viewBox="${vb.join(" ")}" preserveAspectRatio="xMidYMid meet" role="group" aria-label="Mapa de ${esc(NOME_UF[uf])} por município">${h}</svg></div>
+    <p class="legenda"><span class="sw" style="--c:var(--lula)"></span>Lula <span class="sw" style="--c:var(--flavio)"></span>Flávio <span class="sw" style="--c:var(--sem)"></span>sem votos · toque num município para abrir</p>`;
 }
 function blocoMapa(lat) {
   if (!S.geo) return `<div class="mapa" style="aspect-ratio:1"></div>`;
+  const n = nivel();
+  if ((n === "uf" || n === "mun") && S.sel.uf !== "zz" && S.geo.paths[S.sel.uf]) return blocoMapaEstado(lat, S.sel.uf);
   const { paths, centro } = S.geo;
-  const sel = new Set(nivel() === "br" ? [] : nivel() === "regiao" ? REGIOES[S.sel.regiao] : [S.sel.uf]);
+  // Região escolhida: aproxima nos estados dela (rótulos na mesma escala visual)
+  const vbReg = n === "regiao" ? caixaDe(REGIOES[S.sel.regiao]) : null;
+  const k = vbReg ? vbReg[2] / 452 : 1;
+  // Na região, os estados dela ficam normais e os vizinhos apagados (sem contorno de seleção)
+  const sel = new Set(nivel() === "uf" || nivel() === "mun" ? [S.sel.uf] : []);
+  const daRegiao = vbReg ? new Set(REGIOES[S.sel.regiao]) : null;
   const ordem = Object.keys(paths).sort((a, b) => sel.has(a) - sel.has(b));
   let h = "", rot = "";
   for (const uf of ordem) {
     const p = lat.uf[uf];
     const cor = cssVar(corLider(p));
     const dica = `${NOME_UF[uf]}: ${fmtPct(p ? p.pct_apurado : 0, 1)} apurado${p && dois(p) ? ` · Flávio ${fmtPct(pctC(p, "flavio"), 1)}, Lula ${fmtPct(pctC(p, "lula"), 1)}` : ""}`;
-    h += `<g class="uf${sel.has(uf) ? " sel" : ""}" data-uf="${uf}" tabindex="0" role="button" aria-label="${esc(dica)}"><title>${esc(dica)}</title><path d="${paths[uf]}" fill="${cor}"/></g>`;
+    h += `<g class="uf${sel.has(uf) ? " sel" : ""}${daRegiao && !daRegiao.has(uf) ? " fora-reg" : ""}" data-uf="${uf}" tabindex="0" role="button" aria-label="${esc(dica)}"><title>${esc(dica)}</title><path d="${paths[uf]}" fill="${cor}"/></g>`;
   }
   const ink = (uf) => (dois(lat.uf[uf]) ? "#ffffff" : cssVar("--text"));
   // Abaixo de 1% mostra uma casa decimal (0,4%), acima arredonda (38%)
   const pctTxt = (uf) => { const v = lat.uf[uf] ? lat.uf[uf].pct_apurado : 0; return fmtPct(v, v > 0 && v < 1 ? 1 : 0); };
   for (const uf of Object.keys(centro)) {
-    if (CHAMADAS.includes(uf)) continue;
+    if (CHAMADAS.includes(uf) && !vbReg) continue;
     const [x, y] = centro[uf];
     const pequeno = uf === "df";
-    rot += `<text x="${x}" y="${y - (pequeno ? -2 : 3)}" text-anchor="middle" class="r-uf" fill="${ink(uf)}" ${pequeno ? 'style="font-size:6.5px"' : ""}>${uf.toUpperCase()}</text>`;
-    if (!pequeno) rot += `<text x="${x}" y="${y + 8}" text-anchor="middle" class="r-pct" fill="${ink(uf)}">${pctTxt(uf)}</text>`;
+    if (vbReg && !REGIOES[S.sel.regiao].includes(uf)) continue;
+    rot += `<text x="${x}" y="${y - (pequeno ? -2 : 3) * k}" text-anchor="middle" class="r-uf" fill="${ink(uf)}" style="font-size:${(pequeno ? 6.5 : 10.5) * k}px">${uf.toUpperCase()}</text>`;
+    if (!pequeno) rot += `<text x="${x}" y="${y + 8 * k}" text-anchor="middle" class="r-pct" fill="${ink(uf)}" style="font-size:${8.5 * k}px">${pctTxt(uf)}</text>`;
+  }
+  if (vbReg) {
+    return `<div class="mapa"><svg viewBox="${vbReg.join(" ")}" preserveAspectRatio="xMidYMid meet" role="group" aria-label="Mapa da região ${esc(NOME_REG[S.sel.regiao])}">${h}${rot}</svg></div>
+      <p class="legenda"><span class="sw" style="--c:var(--lula)"></span>Lula <span class="sw" style="--c:var(--flavio)"></span>Flávio <span class="sw" style="--c:var(--sem)"></span>sem votos · toque num estado para ver os municípios</p>`;
   }
   // Chamadas fora do mapa, empilhadas sem sobrepor (mín. 18 unidades entre rótulos)
   const lista = CHAMADAS.filter((u) => centro[u]).map((u) => ({ u, x: centro[u][0], y: centro[u][1], ly: centro[u][1] })).sort((a, b) => a.y - b.y);
@@ -594,13 +679,62 @@ function telaRegiao() {
   });
 }
 
+/* ---------- tela 1º × 2º: diferença de resultado entre os turnos ----------
+   1º turno: % sobre todos os votos válidos (havia outros candidatos). 2º turno: % sobre os votos dos dois
+   (que são todos os válidos). Variação em pontos percentuais. O 2º turno ainda é parcial: vale o apurado até agora. */
+function pct1(p, k) { return p && p.validos ? (100 * p.votos[k]) / p.validos : null; }
+function pct2(p, k) { return dois(p) ? (100 * p.votos[k]) / dois(p) : null; }
+function telaComparacao(paraRegiao) {
+  const lat1 = S.d.t1.latest, lat2 = S.d.t2.latest;
+  if (!lat1) { $("s3").innerHTML = `<h2>1º × 2º turno</h2><p class="sub">Carregando o 1º turno…</p>`; carregaT1().then(renderTudo); return; }
+  if (!lat2) { $("s3").innerHTML = `<h2>1º × 2º turno</h2><p class="sub">O 2º turno ainda não tem votos publicados.</p>`; return; }
+  const ck = S.candComp, ccls = ck === "flavio" ? "num-f" : "num-l";
+  const p1 = pontoAtual(S.sel, lat1), p2 = pontoAtual(S.sel, lat2);
+  const sinal = (v) => (v == null ? "–" : `${v >= 0 ? "+" : "−"}${NF[1].format(Math.abs(v))} p.p.`);
+  const resumo = CAND.map((c) => {
+    const a = pct1(p1, c.k), b = pct2(p2, c.k), v = a != null && b != null ? b - a : null;
+    return `<button type="button" class="comp-cand cand-btn" data-comp-cand="${c.k}" aria-pressed="${ck === c.k}" style="--c:var(${c.cor})" aria-label="Ver a variação de ${c.nome} na tabela">
+      <span class="comp-nome"><span class="sw"></span>${c.curto}</span>
+      <span class="comp-num">${fmtPct(a)} <span class="comp-seta">→</span> <b>${fmtPct(b)}</b></span>
+      <span class="comp-var ${v == null ? "" : v >= 0 ? "sobe" : "desce"}">${sinal(v)}</span></button>`;
+  }).join("");
+  const n = nivel();
+  const us = n === "mun" ? [] : unidades(S.sel, paraRegiao);
+  let rows = us.map((u) => {
+    const a = pontoAtual(u, lat1), b = pontoAtual(u, lat2);
+    const x1 = pct1(a, ck), x2 = pct2(b, ck);
+    return { u, a, b, x1, x2, v: x1 != null && x2 != null ? x2 - x1 : null, eleit: (a && a.eleitorado) || (b && b.eleitorado) || 0, apur: b ? b.pct_apurado : 0 };
+  }).filter((r) => r.a || r.b);
+  rows = ordena(rows, S.ordComp, {
+    nome: (r) => nomeUnid(r.u), eleit: (r) => r.eleit, apur: (r) => r.apur,
+    p1: (r) => r.x1 ?? -1, p2: (r) => r.x2 ?? -1, var: (r) => (r.v == null ? 999 * S.ordComp.dir : r.v),
+  });
+  const lim = Math.min(120, rows.length);
+  const un = rotuloUnid(S.sel, paraRegiao), cn = ck === "flavio" ? "Flávio" : "Lula";
+  const tabela = rows.length ? `<div class="enche bloco"><div class="tabela-wrap"><table class="tabela">
+    <colgroup><col class="c-nome"><col class="col-opc"><col><col><col><col></colgroup>
+    <thead><tr>${thOrd(S.ordComp, "comp", "nome", un)}${thOrd(S.ordComp, "comp", "apur", ["Apurado 2º", "Apur."], "col-opc")}${thOrd(S.ordComp, "comp", "p1", [cn + " 1º", "1º"], ccls)}${thOrd(S.ordComp, "comp", "p2", [cn + " 2º", "2º"], ccls)}${thOrd(S.ordComp, "comp", "var", ["Variação", "Var."])}${thOrd(S.ordComp, "comp", "eleit", ["Eleitores", "Eleit."])}</tr></thead>
+    <tbody>${rows.slice(0, lim).map((r) => `<tr><td><button type="button" class="link-cel" data-ir-local='${esc(JSON.stringify(r.u))}'>${esc(nomeUnid(r.u))}</button></td>
+      <td class="col-opc">${fmtPct(r.apur, 1)}</td><td>${fmtPct(r.x1, 1)}</td><td class="${ccls}">${fmtPct(r.x2, 1)}</td>
+      <td class="${r.v == null ? "" : r.v >= 0 ? "sobe" : "desce"}">${r.v == null ? "–" : `${r.v >= 0 ? "+" : "−"}${NF[1].format(Math.abs(r.v))}`}</td><td>${num(r.eleit)}</td></tr>`).join("")}</tbody>
+    </table></div>${lim < rows.length ? `<p class="sub">Mostrando ${lim} de ${rows.length}. Ordene pelas colunas ou filtre um local.</p>` : ""}</div>`
+    : `<p class="sub bloco">Escolha um nível acima (estado ou região) para comparar as partes.</p>`;
+  $("s3").innerHTML = `<h2>1º × 2º turno: ${esc(nomeLocal())}</h2>
+    <p class="sub">1º turno: % de todos os válidos. 2º turno: % dos válidos apurados até agora<span class="sub-longo">. Toque num candidato para ver a variação dele na tabela; toque no título de uma coluna para ordenar</span>.</p>
+    <div class="comp-resumo bloco">${resumo}</div>${tabela}`;
+}
+
 /* ---------- render ---------- */
 let seq = 0;
 async function renderTudo() {
   renderMeta();
   syncCombos();
   $("titulo-local").textContent = nomeLocal();
-  $("btn-limpar").disabled = nivel() === "br";
+  const filtrado = nivel() !== "br" || S.modo !== "geral" || T1();
+  const bl = $("btn-limpar");
+  if (filtrado && bl.disabled) { bl.classList.remove("pulsa"); void bl.offsetWidth; bl.classList.add("pulsa"); }
+  bl.disabled = !filtrado;
+  bl.classList.toggle("ativo", filtrado);
   document.querySelectorAll("[data-modo]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.modo === S.modo)));
   if (!L()) {
     $("s0").innerHTML = `<p class="achado">${T1() ? "Carregando o 1º turno…" : "O 2º turno ainda não tem votos publicados. A apuração começa às 17h; abra o filtro para ver o 1º turno."}</p>`;
@@ -608,10 +742,10 @@ async function renderTudo() {
     return;
   }
   const meu = ++seq;
-  if (S.modo === "regiao") { telaRegiao(); requestAnimationFrame(ajustaAltura); setTimeout(ajustaAltura, 400); return; }
+  if (S.modo === "regiao") { telaRegiao(); telaComparacao(true); return; }
   const p = pontoAtual();
   telaGeral(p, []);
-  requestAnimationFrame(ajustaAltura);
+  telaComparacao(false);
   if (T1()) return;
   const serie = await carregaSerie(S.sel);
   if (meu !== seq || S.modo !== "geral") return;
@@ -668,7 +802,7 @@ function slideAtual() {
 }
 function irPara(i) {
   const c = $("carrossel");
-  i = Math.max(0, Math.min(2, i));
+  i = Math.max(0, Math.min(3, i));
   c.scrollTo({ left: i * (c.clientWidth + 16), behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
 }
 function ajustaAltura() { /* a altura agora vem do CSS (cabe na janela) */ }
@@ -677,7 +811,7 @@ function marcaSlide() {
   ajustaAltura();
   document.querySelectorAll(".abas button").forEach((b, j) => (j === i ? b.setAttribute("aria-current", "true") : b.removeAttribute("aria-current")));
   document.querySelector(".nav-seta.esq").disabled = i === 0;
-  document.querySelector(".nav-seta.dir").disabled = i === 2;
+  document.querySelector(".nav-seta.dir").disabled = i === 3;
 }
 
 /* ---------- eventos ---------- */
@@ -699,7 +833,15 @@ function montaEventos() {
   const abreFiltro = (abrir) => { $("filtros").hidden = !abrir; $("btn-filtro").setAttribute("aria-expanded", String(abrir)); };
   $("btn-filtro").addEventListener("click", () => abreFiltro($("filtros").hidden));
   $("fechar-filtro").addEventListener("click", () => abreFiltro(false));
-  $("btn-limpar").addEventListener("click", () => { abreFiltro(false); selecionar({ regiao: null, uf: null, mun: null }); irPara(0); });
+  // Tira todos os filtros: volta para Brasil, visão Geral e 2º turno (se já tiver votos)
+  $("btn-limpar").addEventListener("click", () => {
+    abreFiltro(false);
+    S.modo = "geral";
+    const br2 = S.d.t2.latest && S.d.t2.latest.br;
+    if (br2 && br2.pct_apurado > 0) S.turno = "t2";
+    selecionar({ regiao: null, uf: null, mun: null });
+    irPara(0);
+  });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("filtros").hidden) abreFiltro(false); });
   document.querySelectorAll("[data-turno]").forEach((b) => b.addEventListener("click", () => trocaTurno(b.dataset.turno)));
   document.querySelectorAll("[data-modo]").forEach((b) => b.addEventListener("click", () => { S.modo = b.dataset.modo; renderTudo(); irPara(0); }));
@@ -710,6 +852,8 @@ function montaEventos() {
   document.querySelectorAll(".abas button").forEach((b) => b.addEventListener("click", () => irPara(+b.dataset.ir)));
   document.querySelectorAll(".nav-seta").forEach((b) => b.addEventListener("click", () => irPara(slideAtual() + +b.dataset.passo)));
   c.addEventListener("keydown", (e) => {
+    const gm = e.target.closest("g[data-mun]");
+    if (gm && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); selecionar({ mun: gm.dataset.mun }); return; }
     const g = e.target.closest("[data-uf]");
     if (g && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); selecionar({ regiao: UF_REG[g.dataset.uf] || null, uf: g.dataset.uf, mun: null }); return; }
     if (e.target !== c) return;
@@ -720,13 +864,17 @@ function montaEventos() {
   c.addEventListener("click", (e) => {
     const ob = e.target.closest("[data-ord-col]");
     if (ob) {
-      const est = ob.dataset.ordTab === "proj" ? S.ordProj : S.ordReg, col = ob.dataset.ordCol;
+      const est = { proj: S.ordProj, reg: S.ordReg, comp: S.ordComp }[ob.dataset.ordTab], col = ob.dataset.ordCol;
       est.dir = est.col === col ? -est.dir : col === "nome" ? 1 : -1;
       est.col = col;
       return renderTudo();
     }
+    const cc = e.target.closest("[data-comp-cand]");
+    if (cc) { S.candComp = cc.dataset.compCand; return renderTudo(); }
     const cb = e.target.closest("[data-cand]");
     if (cb) { S.candProj = cb.dataset.cand; return renderTudo(); }
+    const gm = e.target.closest("g[data-mun]");
+    if (gm) return selecionar({ mun: gm.dataset.mun });
     const g = e.target.closest("[data-uf]");
     if (g) return selecionar({ regiao: UF_REG[g.dataset.uf] || null, uf: g.dataset.uf, mun: null });
     const l = e.target.closest("[data-ir-local]");
@@ -794,6 +942,7 @@ async function iniciar() {
     if (br && uf && m) { S.base = { br, uf, mun: m }; if (!T1()) renderTudo(); }
   });
   fetch(GEOJSON).then((r) => r.json()).then((g) => { S.geo = projetaGeo(g); renderTudo(); }).catch(() => {});
+  carregaT1().then(() => { if (!T1()) renderTudo(); });
   setInterval(atualizar, REFRESH_MS);
 }
 
