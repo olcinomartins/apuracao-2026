@@ -126,6 +126,7 @@ main { flex: 1; min-height: 0; width: 100%; max-width: 1132px; margin: 0 auto; p
 .cab h1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .seg-turno { grid-area: turno; }
 .seg-turno button { min-height: 34px; padding: 0 10px; }
+@media (max-width: 420px) { .seg-turno button { padding: 0 7px; font-size: 13px; } .cab h1 { font-size: 20px; } }
 .cab .abas { grid-area: abas; margin: 0; }
 .cab h1 { font-size: 22px; line-height: 28px; letter-spacing: -0.01em; }
 .status { font-size: 12px; line-height: 16px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
@@ -203,6 +204,11 @@ main { flex: 1; min-height: 0; width: 100%; max-width: 1132px; margin: 0 auto; p
 .duelo-lados .cand-btn:last-child { text-align: right; }
 /* 1º × 2º */
 .comp-resumo { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+div.comp-cand { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); }
+.comp-cand { min-width: 0; overflow: hidden; }
+@media (max-width: 520px) { .comp-num { font-size: 12px; } .comp-num b { font-size: 16px; } .comp-var { font-size: 14px; } }
+.transf-topo .div-barra { height: 26px; margin-top: 8px; }
+.mapa .rot-mun { fill: var(--text); paint-order: stroke; stroke: var(--surface); }
 .comp-cand { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 8px 10px; border: 2px solid var(--border); border-radius: var(--radius); }
 .comp-nome { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 13px; color: var(--c); text-transform: uppercase; } /* taste-skill-ignore: nome de urna */
 .comp-num { font-size: 14px; color: var(--muted); white-space: nowrap; }
@@ -279,7 +285,7 @@ th.num-l .th-ord { color: var(--lula); }
 .div-nome { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .div-nome small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; line-height: 16px; }
 .div-barra { position: relative; display: flex; height: 22px; gap: 2px; border-radius: 4px; overflow: hidden; background: var(--sem); }
-.div-barra span { background: var(--c); display: flex; align-items: center; font-size: 11px; font-weight: 600; color: #fff; padding: 0 6px; white-space: nowrap; overflow: hidden; }
+.div-barra span { background: var(--c); display: flex; align-items: center; font-size: 11px; font-weight: 600; color: #fff; padding: 0 4px; white-space: nowrap; overflow: hidden; }
 .div-barra span:last-child { justify-content: flex-end; }
 .div-apur { text-align: right; }
 .div-apur small { display: block; color: var(--muted); font-size: 12px; line-height: 16px; }

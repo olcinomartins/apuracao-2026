@@ -13,7 +13,7 @@ const BASE_T1 = QS.get("dados_t1") || (TESTE ? "./data-test/t1/" : `https://raw.
 const GEOJSON = "https://cdn.jsdelivr.net/gh/codeforgermany/click_that_hood@48ba05ad4c6969e3b3c25735492169227ae411f1/public/data/brazil-states.geojson";
 const REFRESH_MS = 60000;
 // Versão publicada; muda a cada deploy junto com versao.txt e os ?v= do index.html
-const VERSAO = "20261025210530";
+const VERSAO = "20261025212225";
 
 const REGIOES = {
   N: ["ac", "am", "ap", "pa", "ro", "rr", "to"],
@@ -104,8 +104,34 @@ async function getJSON(path, base = BASE) {
   }
 }
 
+// Painéis: "t1" (1º turno), "t2" (2º turno) e "comp" (1º × 2º, que usa os dois)
 const T1 = () => S.turno === "t1";
-const L = () => S.d[S.turno].latest;
+const COMP = () => S.turno === "comp";
+const L = () => (COMP() ? S.d.t2.latest : S.d[S.turno].latest);
+const META = () => (COMP() ? S.d.t2.meta : S.d[S.turno].meta);
+function mix(a, b, t) {
+  const hx = (x) => [1, 3, 5].map((i) => parseInt(x.slice(i, i + 2), 16));
+  const [p, q] = [hx(a), hx(b)];
+  return "#" + p.map((v, i) => Math.round(v + (q[i] - v) * t).toString(16).padStart(2, "0")).join(""); // taste-skill-ignore (hex)
+}
+// Intensidade pela margem: tom claro = disputa apertada, cor cheia = vitória folgada (mapa de municípios)
+function corIntensa(p) {
+  if (!dois(p)) return cssVar("--sem");
+  const m = Math.abs(margem(p)), base = cssVar(p.votos.flavio >= p.votos.lula ? "--flavio" : "--lula");
+  return mix(base, cssVar("--surface"), 0.72 - 0.72 * Math.min(1, m / 40));
+}
+// Mudança da margem entre os turnos (só entre os dois, em p.p.): positiva = a disputa andou para Flávio
+function mudanca(sel) {
+  const a = pontoAtual(sel, S.d.t1.latest), b = pontoAtual(sel, S.d.t2.latest);
+  if (!a || !b || !dois(a) || !dois(b)) return null;
+  return margem(b) - margem(a);
+}
+function corMud(d) {
+  if (d == null) return cssVar("--sem");
+  const base = cssVar(d >= 0 ? "--flavio" : "--lula");
+  return mix(base, cssVar("--surface"), 0.78 - 0.68 * Math.min(1, Math.abs(d) / 12));
+}
+const txtMud = (d) => (d == null ? "–" : `${d >= 0 ? "F" : "L"}+${NF[Math.abs(d) < 10 ? 1 : 0].format(Math.abs(d))}`);
 const dois = (p) => (p ? p.votos.flavio + p.votos.lula : 0);
 // % de um candidato: no 2º turno sobre os dois; no 1º, sobre todos os válidos
 const pctC = (p, k) => {
@@ -389,7 +415,9 @@ async function carregaMalha(uf) {
       const id = IBGE[f.properties.codarea];
       const polys = f.geometry.type === "Polygon" ? [f.geometry.coordinates] : f.geometry.coordinates;
       const d = polys.map((poly) => poly.map((ring) => "M" + ring.map((c) => P(c).map((v) => v.toFixed(2)).join(",")).join("L") + "Z").join("")).join("");
-      return { cd: id && id[0] === uf ? id[1] : null, d };
+      let melhor = null;
+      for (const poly of polys) { const c = centroide(poly[0], P); if (!melhor || c[2] > melhor[2]) melhor = c; }
+      return { cd: id && id[0] === uf ? id[1] : null, d, c: melhor };
     });
     renderTudo();
   } catch (e) {
@@ -409,7 +437,8 @@ function caixaDe(ufs) {
   return [c[0] - pad, c[1] - pad, w + 2 * pad, h + 2 * pad];
 }
 function blocoMapaEstado(lat, uf) {
-  // Mapa do estado com os municípios pintados pelo líder; toque num município para abri-lo
+  // Mapa do estado com os municípios: cor do líder com intensidade pela margem (no 1º × 2º, a mudança
+  // entre os turnos); toque num município para abri-lo
   const mal = MALHAS[uf];
   const vb = caixaDe([uf]);
   const pts = lat.mun[uf] || {};
@@ -426,15 +455,26 @@ function blocoMapaEstado(lat, uf) {
       const p = m.cd ? pts[m.cd] : null;
       const nome = m.cd ? nomeMun(uf, m.cd) : "";
       const dica = `${nome}: ${fmtPct(p ? p.pct_apurado : 0, 1)} apurado${p && dois(p) ? ` · Flávio ${fmtPct(pctC(p, "flavio"), 1)}, Lula ${fmtPct(pctC(p, "lula"), 1)}` : ""}`;
-      h += `<g class="uf mun${m.cd === munSel ? " sel" : ""}" ${m.cd ? `data-mun="${m.cd}" tabindex="0" role="button" aria-label="${esc(dica)}"` : ""}><title>${esc(dica)}</title><path d="${m.d}" fill="${cssVar(corLider(p))}"/></g>`;
+      const d = COMP() && m.cd ? mudanca({ regiao: UF_REG[uf] || null, uf, mun: m.cd }) : null;
+      const fill = COMP() ? corMud(d) : corIntensa(p);
+      const dica2 = COMP() ? `${nome}: mudança ${txtMud(d)} p.p. entre os turnos` : dica;
+      h += `<g class="uf mun${m.cd === munSel ? " sel" : ""}" ${m.cd ? `data-mun="${m.cd}" tabindex="0" role="button" aria-label="${esc(dica2)}"` : ""}><title>${esc(dica2)}</title><path d="${m.d}" fill="${fill}"/></g>`;
     }
     if (munSel) {
       const sel = mal.find((m) => m.cd === munSel);
-      if (sel) h += `<path d="${sel.d}" fill="none" stroke="${cssVar("--text")}" stroke-width="2.5" vector-effect="non-scaling-stroke" pointer-events="none"/>`;
+      if (sel) {
+        h += `<path d="${sel.d}" fill="none" stroke="${cssVar("--text")}" stroke-width="2.5" vector-effect="non-scaling-stroke" pointer-events="none"/>`;
+        if (sel.c) h += `<text x="${sel.c[0]}" y="${sel.c[1] - 3 * k}" text-anchor="middle" class="r-uf rot-mun" style="font-size:${11 * k}px;stroke-width:${3 * k}px">${esc(nomeMun(uf, munSel))}</text>`;
+      }
     }
   }
   return `<div class="mapa"><svg viewBox="${vb.join(" ")}" preserveAspectRatio="xMidYMid meet" role="group" aria-label="Mapa de ${esc(NOME_UF[uf])} por município">${h}</svg></div>
-    <p class="legenda"><span class="sw" style="--c:var(--lula)"></span>Lula <span class="sw" style="--c:var(--flavio)"></span>Flávio <span class="sw" style="--c:var(--sem)"></span>sem votos · toque num município para abrir</p>`;
+    ${legendaMapa(true)}`;
+}
+function legendaMapa(municipios) {
+  if (COMP()) return `<p class="legenda"><span class="sw" style="--c:var(--lula)"></span>andou para Lula <span class="sw" style="--c:var(--flavio)"></span>andou para Flávio · tom mais forte = mudança maior${municipios ? "" : " · número = mudança da margem (p.p.)"}</p>`;
+  if (municipios) return `<p class="legenda"><span class="sw" style="--c:var(--lula)"></span>Lula <span class="sw" style="--c:var(--flavio)"></span>Flávio <span class="sw" style="--c:var(--sem)"></span>sem votos · tom mais forte = vitória mais folgada · toque num município</p>`;
+  return `<p class="legenda"><span class="sw" style="--c:var(--lula)"></span>Lula <span class="sw" style="--c:var(--flavio)"></span>Flávio <span class="sw" style="--c:var(--sem)"></span>sem votos · número = % de urnas apuradas</p>`;
 }
 function blocoMapa(lat) {
   if (!S.geo) return `<div class="mapa" style="aspect-ratio:1"></div>`;
@@ -451,13 +491,19 @@ function blocoMapa(lat) {
   let h = "", rot = "";
   for (const uf of ordem) {
     const p = lat.uf[uf];
-    const cor = cssVar(corLider(p));
-    const dica = `${NOME_UF[uf]}: ${fmtPct(p ? p.pct_apurado : 0, 1)} apurado${p && dois(p) ? ` · Flávio ${fmtPct(pctC(p, "flavio"), 1)}, Lula ${fmtPct(pctC(p, "lula"), 1)}` : ""}`;
+    const dUF = COMP() ? mudanca({ regiao: UF_REG[uf] || null, uf, mun: null }) : null;
+    const cor = COMP() ? corMud(dUF) : cssVar(corLider(p));
+    const dica = COMP() ? `${NOME_UF[uf]}: mudança da margem ${txtMud(dUF)} p.p. entre os turnos`
+      : `${NOME_UF[uf]}: ${fmtPct(p ? p.pct_apurado : 0, 1)} apurado${p && dois(p) ? ` · Flávio ${fmtPct(pctC(p, "flavio"), 1)}, Lula ${fmtPct(pctC(p, "lula"), 1)}` : ""}`;
     h += `<g class="uf${sel.has(uf) ? " sel" : ""}${daRegiao && !daRegiao.has(uf) ? " fora-reg" : ""}" data-uf="${uf}" tabindex="0" role="button" aria-label="${esc(dica)}"><title>${esc(dica)}</title><path d="${paths[uf]}" fill="${cor}"/></g>`;
   }
-  const ink = (uf) => (dois(lat.uf[uf]) ? "#ffffff" : cssVar("--text"));
-  // Abaixo de 1% mostra uma casa decimal (0,4%), acima arredonda (38%)
-  const pctTxt = (uf) => { const v = lat.uf[uf] ? lat.uf[uf].pct_apurado : 0; return fmtPct(v, v > 0 && v < 1 ? 1 : 0); };
+  const mudUF = (uf) => mudanca({ regiao: UF_REG[uf] || null, uf, mun: null });
+  const ink = (uf) => (COMP() ? (Math.abs(mudUF(uf) || 0) >= 5 ? "#ffffff" : cssVar("--text")) : dois(lat.uf[uf]) ? "#ffffff" : cssVar("--text"));
+  // Abaixo de 1% mostra uma casa decimal (0,4%), acima arredonda (38%); no 1º × 2º, a mudança da margem
+  const pctTxt = (uf) => {
+    if (COMP()) return txtMud(mudUF(uf));
+    const v = lat.uf[uf] ? lat.uf[uf].pct_apurado : 0; return fmtPct(v, v > 0 && v < 1 ? 1 : 0);
+  };
   for (const uf of Object.keys(centro)) {
     if (CHAMADAS.includes(uf) && !vbReg) continue;
     const [x, y] = centro[uf];
@@ -468,7 +514,7 @@ function blocoMapa(lat) {
   }
   if (vbReg) {
     return `<div class="mapa"><svg viewBox="${vbReg.join(" ")}" preserveAspectRatio="xMidYMid meet" role="group" aria-label="Mapa da região ${esc(NOME_REG[S.sel.regiao])}">${h}${rot}</svg></div>
-      <p class="legenda"><span class="sw" style="--c:var(--lula)"></span>Lula <span class="sw" style="--c:var(--flavio)"></span>Flávio <span class="sw" style="--c:var(--sem)"></span>sem votos · toque num estado para ver os municípios</p>`;
+      ${legendaMapa(false)}`;
   }
   // Chamadas fora do mapa, empilhadas sem sobrepor (mín. 18 unidades entre rótulos)
   const lista = CHAMADAS.filter((u) => centro[u]).map((u) => ({ u, x: centro[u][0], y: centro[u][1], ly: centro[u][1] })).sort((a, b) => a.y - b.y);
@@ -477,9 +523,9 @@ function blocoMapa(lat) {
     rot += `<line class="guia" x1="${c.x}" y1="${c.y}" x2="398" y2="${c.ly}"/><circle cx="${c.x}" cy="${c.y}" r="1.4" fill="${cssVar("--faint")}"/>`;
     rot += `<text x="402" y="${c.ly + 3.5}" class="r-uf fora">${c.u.toUpperCase()} <tspan class="r-pct">${pctTxt(c.u)}</tspan></text>`;
   }
-  rot += `<text x="340" y="392" class="r-uf fora">Exterior <tspan class="r-pct">${lat.uf.zz ? pctTxt("zz") : "–"}</tspan></text>`;
-  return `<div class="mapa"><svg viewBox="-4 -4 452 410" preserveAspectRatio="xMidYMid meet" role="group" aria-label="Mapa do Brasil por estado: cor do líder e % de urnas apuradas">${h}${rot}</svg></div>
-    <p class="legenda"><span class="sw" style="--c:var(--lula)"></span>Lula <span class="sw" style="--c:var(--flavio)"></span>Flávio <span class="sw" style="--c:var(--sem)"></span>sem votos · número = % de urnas apuradas</p>`;
+  rot += `<text x="340" y="392" class="r-uf fora">Exterior <tspan class="r-pct">${lat.uf.zz || COMP() ? pctTxt("zz") : "–"}</tspan></text>`;
+  return `<div class="mapa"><svg viewBox="-4 -4 452 410" preserveAspectRatio="xMidYMid meet" role="group" aria-label="Mapa do Brasil por estado">${h}${rot}</svg></div>
+    ${legendaMapa(false)}`;
 }
 
 /* ---------- gráfico de evolução (SVG, não captura o toque) ---------- */
@@ -684,10 +730,9 @@ function telaRegiao() {
    (que são todos os válidos). Variação em pontos percentuais. O 2º turno ainda é parcial: vale o apurado até agora. */
 function pct1(p, k) { return p && p.validos ? (100 * p.votos[k]) / p.validos : null; }
 function pct2(p, k) { return dois(p) ? (100 * p.votos[k]) / dois(p) : null; }
-function telaComparacao(paraRegiao) {
+function telaComparacao(paraRegiao, alvo = "s2") {
   const lat1 = S.d.t1.latest, lat2 = S.d.t2.latest;
-  if (!lat1) { $("s3").innerHTML = `<h2>1º × 2º turno</h2><p class="sub">Carregando o 1º turno…</p>`; carregaT1().then(renderTudo); return; }
-  if (!lat2) { $("s3").innerHTML = `<h2>1º × 2º turno</h2><p class="sub">O 2º turno ainda não tem votos publicados.</p>`; return; }
+  if (!lat1 || !lat2) { $(alvo).innerHTML = `<h2>1º × 2º turno</h2><p class="sub">Carregando…</p>`; return; }
   const ck = S.candComp, ccls = ck === "flavio" ? "num-f" : "num-l";
   const p1 = pontoAtual(S.sel, lat1), p2 = pontoAtual(S.sel, lat2);
   const sinal = (v) => (v == null ? "–" : `${v >= 0 ? "+" : "−"}${NF[1].format(Math.abs(v))} p.p.`);
@@ -719,9 +764,63 @@ function telaComparacao(paraRegiao) {
       <td class="${r.v == null ? "" : r.v >= 0 ? "sobe" : "desce"}">${r.v == null ? "–" : `${r.v >= 0 ? "+" : "−"}${NF[1].format(Math.abs(r.v))}`}</td><td>${num(r.eleit)}</td></tr>`).join("")}</tbody>
     </table></div>${lim < rows.length ? `<p class="sub">Mostrando ${lim} de ${rows.length}. Ordene pelas colunas ou filtre um local.</p>` : ""}</div>`
     : `<p class="sub bloco">Escolha um nível acima (estado ou região) para comparar as partes.</p>`;
-  $("s3").innerHTML = `<h2>1º × 2º turno: ${esc(nomeLocal())}</h2>
-    <p class="sub">1º turno: % de todos os válidos. 2º turno: % dos válidos apurados até agora<span class="sub-longo">. Toque num candidato para ver a variação dele na tabela; toque no título de uma coluna para ordenar</span>.</p>
+  $(alvo).innerHTML = `<h2>Tabela: ${esc(nomeLocal())}</h2>
+    <p class="sub">1º turno: % de todos os válidos. 2º turno: % dos válidos apurados até agora<span class="sub-longo">. Toque num candidato para ver a variação dele; toque no título de uma coluna para ordenar</span>.</p>
     <div class="comp-resumo bloco">${resumo}</div>${tabela}`;
+}
+
+/* ---------- painel 1º × 2º: mapa da mudança e para onde foram os votos ---------- */
+// Dos votos que foram para outros candidatos no 1º turno, quanto cada um "herdou" no 2º (estimativa simples:
+// ganho de % de cada um entre os turnos ÷ soma dos ganhos; ignora troca direta entre os dois e comparecimento)
+function herdou(sel) {
+  const a = pontoAtual(sel, S.d.t1.latest), b = pontoAtual(sel, S.d.t2.latest);
+  if (!a || !a.validos || !dois(b)) return null;
+  const f1 = (100 * a.votos.flavio) / a.validos, l1 = (100 * a.votos.lula) / a.validos;
+  const gF = shareF(b) - f1, gL = shareL(b) - l1, outros = 100 - f1 - l1;
+  const tot = gF + gL;
+  const fracF = tot > 0.3 ? Math.min(1, Math.max(0, gF / tot)) : null;
+  return { outros, gF, gL, fracF, eleit: a.eleitorado };
+}
+function telaMudanca() {
+  const lat1 = S.d.t1.latest, lat2 = S.d.t2.latest;
+  if (!lat1 || !lat2) { $("s0").innerHTML = `<p class="achado">Carregando os dois turnos…</p>`; return; }
+  const p1 = pontoAtual(S.sel, lat1), p2 = pontoAtual(S.sel, lat2);
+  const m1 = dois(p1) ? margem(p1) : null, m2 = dois(p2) ? margem(p2) : null;
+  const d = m1 != null && m2 != null ? m2 - m1 : null;
+  const lado = (m) => (m == null ? "–" : `${m >= 0 ? "Flávio" : "Lula"} +${NF[1].format(Math.abs(m))} p.p.`);
+  const cartao = (c) => {
+    const a = pct1(p1, c.k), b = pct2(p2, c.k), v = a != null && b != null ? b - a : null;
+    return `<div class="comp-cand" style="--c:var(${c.cor})"><span class="comp-nome"><span class="sw"></span>${c.curto}</span>
+      <span class="comp-num">${fmtPct(a)} <span class="comp-seta">→</span> <b>${fmtPct(b)}</b></span>
+      <span class="comp-var ${v == null ? "" : v >= 0 ? "sobe" : "desce"}">${v == null ? "–" : `${v >= 0 ? "+" : "−"}${NF[1].format(Math.abs(v))} p.p.`}</span></div>`;
+  };
+  const hd = herdou(S.sel);
+  $("s0").innerHTML = `<div class="apur enche"><div class="apur-esq">
+      <div class="comp-resumo">${CAND.map(cartao).join("")}</div>
+      <div class="indic"><div><small>Margem no 1º</small><b class="${m1 == null ? "" : m1 >= 0 ? "num-f" : "num-l"}">${lado(m1).replace(" p.p.", "")}</b></div>
+        <div><small>Margem no 2º</small><b class="${m2 == null ? "" : m2 >= 0 ? "num-f" : "num-l"}">${lado(m2).replace(" p.p.", "")}</b></div>
+        <div><small>Mudança</small><b class="${d == null ? "" : d >= 0 ? "num-f" : "num-l"}">${txtMud(d)}</b></div></div>
+      <p class="achado">${d == null ? "Aguardando votos dos dois turnos." : `Entre os turnos, a disputa andou ${NF[1].format(Math.abs(d))} p.p. para ${d >= 0 ? "Flávio" : "Lula"}.`}${hd && hd.fracF != null ? ` Dos ${fmtPct(hd.outros, 1)} que votaram em outros no 1º turno, cerca de ${NF[0].format(100 * (1 - hd.fracF))}% foram para Lula e ${NF[0].format(100 * hd.fracF)}% para Flávio.` : ""}</p>
+    </div>
+    <div class="apur-dir">${blocoMapa(lat2)}</div></div>`;
+}
+function telaTransferencia(paraRegiao) {
+  const lat1 = S.d.t1.latest, lat2 = S.d.t2.latest;
+  if (!lat1 || !lat2) { $("s1").innerHTML = `<h2>Para onde foram os votos</h2><p class="sub">Carregando…</p>`; return; }
+  const hd = herdou(S.sel);
+  const barra = (fracF, rot) => (fracF == null ? `<span class="div-barra"></span>`
+    : `<span class="div-barra"><span style="--c:var(--flavio);width:${100 * fracF}%">${rot && fracF >= 0.2 ? NF[0].format(100 * fracF) + "%" : ""}</span><span style="--c:var(--lula);width:${100 * (1 - fracF)}%">${rot && fracF <= 0.8 ? NF[0].format(100 * (1 - fracF)) + "%" : ""}</span></span>`);
+  const n = nivel();
+  let rows = n === "mun" ? [] : unidades(S.sel, paraRegiao).map((u) => ({ u, hd: herdou(u) })).filter((r) => r.hd && r.hd.fracF != null);
+  rows = rows.sort((a, b) => b.hd.eleit - a.hd.eleit).slice(0, 60);
+  const lin = rows.map(({ u, hd: x }) => `<button type="button" class="div-linha" data-ir-local='${esc(JSON.stringify(u))}' aria-label="${esc(nomeUnid(u))}: dos votos de outros candidatos, ${NF[0].format(100 * x.fracF)}% para Flávio">
+      <span class="div-nome">${esc(nomeUnid(u))}<small>outros: ${fmtPct(x.outros, 1)}</small></span>${barra(x.fracF, true)}<span class="div-apur">${num(x.eleit)}<small>eleitores</small></span></button>`).join("");
+  $("s1").innerHTML = `<h2>Para onde foram os votos dos outros candidatos</h2>
+    <p class="sub">Estimativa: compara os percentuais dos dois turnos<span class="sub-longo">; ignora quem trocou de um candidato para o outro e mudanças de comparecimento</span>.</p>
+    <div class="bloco transf-topo">${hd && hd.fracF != null
+      ? `<p class="achado">${esc(nomeLocal())}: dos ${fmtPct(hd.outros, 1)} que votaram em outros no 1º turno, cerca de <b class="num-f">${NF[0].format(100 * hd.fracF)}%</b> foram para Flávio e <b class="num-l">${NF[0].format(100 * (1 - hd.fracF))}%</b> para Lula.</p>${barra(hd.fracF, true)}`
+      : `<p class="sub">Ainda não dá para estimar neste local.</p>`}</div>
+    <div class="enche bloco"><div class="divs">${lin || '<p class="sub">Escolha um nível acima (estado ou região) para ver as partes.</p>'}</div></div>`;
 }
 
 /* ---------- render ---------- */
@@ -730,22 +829,30 @@ async function renderTudo() {
   renderMeta();
   syncCombos();
   $("titulo-local").textContent = nomeLocal();
-  const filtrado = nivel() !== "br" || S.modo !== "geral" || T1();
+  const filtrado = nivel() !== "br" || S.modo !== "geral" || S.turno !== "t2";
   const bl = $("btn-limpar");
   if (filtrado && bl.disabled) { bl.classList.remove("pulsa"); void bl.offsetWidth; bl.classList.add("pulsa"); }
   bl.disabled = !filtrado;
   bl.classList.toggle("ativo", filtrado);
   document.querySelectorAll("[data-modo]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.modo === S.modo)));
+  const rotulos = COMP() ? ["Mudança", "Tabela", "Para onde foram"] : ["Apuração", "Histórico", "Projeção"];
+  document.querySelectorAll(".abas button").forEach((b, i) => { b.textContent = rotulos[i]; });
+  if (COMP()) {
+    if (!S.d.t1.latest) { carregaT1().then(renderTudo); }
+    telaMudanca();
+    telaComparacao(S.modo === "regiao", "s2");
+    telaTransferencia(S.modo === "regiao");
+    return;
+  }
   if (!L()) {
     $("s0").innerHTML = `<p class="achado">${T1() ? "Carregando o 1º turno…" : "O 2º turno ainda não tem votos publicados. A apuração começa às 17h; abra o filtro para ver o 1º turno."}</p>`;
     $("s1").innerHTML = ""; $("s2").innerHTML = "";
     return;
   }
   const meu = ++seq;
-  if (S.modo === "regiao") { telaRegiao(); telaComparacao(true); return; }
+  if (S.modo === "regiao") { telaRegiao(); return; }
   const p = pontoAtual();
   telaGeral(p, []);
-  telaComparacao(false);
   if (T1()) return;
   const serie = await carregaSerie(S.sel);
   if (meu !== seq || S.modo !== "geral") return;
@@ -753,10 +860,12 @@ async function renderTudo() {
   requestAnimationFrame(ajustaAltura);
 }
 function renderMeta() {
-  const m = S.d[S.turno].meta || {};
+  const m = META() || {};
   const p = pontoAtual();
   const txt = { aguardando: "aguardando o início", apurando: "apurando", finalizado: "resultado final", encerrado: "coleta encerrada" }[m.status] || (T1() ? "carregando…" : "sem dados ainda");
-  $("status").textContent = `${T1() ? "1º turno, 4/10" : "2º turno, 25/10"} · ${txt}${p && !T1() ? ` · ${fmtPct(p.pct_apurado)} das urnas` : ""}`;
+  $("status").textContent = COMP()
+    ? `1º turno (final) × 2º turno (${p ? fmtPct(p.pct_apurado, 1) + " apurado" : "aguardando"})`
+    : `${T1() ? "1º turno, 4/10" : "2º turno, 25/10"} · ${txt}${p && !T1() ? ` · ${fmtPct(p.pct_apurado)} das urnas` : ""}`;
   $("status").className = `status ${m.status || ""}`;
   $("rod-atual").textContent = fmtHora(m.ultima_coleta);
   $("rod-tse").textContent = fmtHora(m.ultima_totalizacao_tse);
@@ -776,7 +885,7 @@ function syncCombos() {
   munOpts.sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
   CB.mun.set([{ v: "", label: uf ? `Todos de ${NOME_UF[uf]}` : "Todos os municípios" }, ...munOpts], mun ? `${uf}-${mun}` : "");
   const n = nivel();
-  const h = [T1() ? "t1" : "", S.modo === "regiao" ? "por-regiao" : "",
+  const h = [T1() ? "t1" : COMP() ? "comp" : "", S.modo === "regiao" ? "por-regiao" : "",
     n === "regiao" ? `regiao-${regiao}` : n === "uf" ? `uf-${uf}` : n === "mun" ? `mun-${uf}-${mun}` : ""].filter(Boolean).join("/");
   history.replaceState(null, "", h ? `#${h}` : location.pathname + location.search);
 }
@@ -784,6 +893,7 @@ function lerHash() {
   for (const parte of location.hash.replace("#", "").split("/")) {
     const [n, a, b] = parte.split("-");
     if (n === "t1") S.turno = "t1";
+    else if (n === "comp") S.turno = "comp";
     else if (parte === "por-regiao") S.modo = "regiao";
     else if (n === "regiao" && REGIOES[a]) S.sel = { regiao: a, uf: null, mun: null };
     else if (n === "uf" && NOME_UF[a]) S.sel = { regiao: UF_REG[a] || null, uf: a, mun: null };
@@ -802,7 +912,7 @@ function slideAtual() {
 }
 function irPara(i) {
   const c = $("carrossel");
-  i = Math.max(0, Math.min(3, i));
+  i = Math.max(0, Math.min(2, i));
   c.scrollTo({ left: i * (c.clientWidth + 16), behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
 }
 function ajustaAltura() { /* a altura agora vem do CSS (cabe na janela) */ }
@@ -811,7 +921,7 @@ function marcaSlide() {
   ajustaAltura();
   document.querySelectorAll(".abas button").forEach((b, j) => (j === i ? b.setAttribute("aria-current", "true") : b.removeAttribute("aria-current")));
   document.querySelector(".nav-seta.esq").disabled = i === 0;
-  document.querySelector(".nav-seta.dir").disabled = i === 3;
+  document.querySelector(".nav-seta.dir").disabled = i === 2;
 }
 
 /* ---------- eventos ---------- */
@@ -843,7 +953,7 @@ function montaEventos() {
     irPara(0);
   });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("filtros").hidden) abreFiltro(false); });
-  document.querySelectorAll("[data-turno]").forEach((b) => b.addEventListener("click", () => trocaTurno(b.dataset.turno)));
+  document.querySelectorAll("[data-turno]").forEach((b) => b.addEventListener("click", () => { trocaTurno(b.dataset.turno); irPara(0); }));
   document.querySelectorAll("[data-modo]").forEach((b) => b.addEventListener("click", () => { S.modo = b.dataset.modo; renderTudo(); irPara(0); }));
   // carrossel
   const c = $("carrossel");
@@ -903,7 +1013,7 @@ async function carregaT1() {
 }
 async function trocaTurno(t) {
   S.turno = t;
-  if (t === "t1") { renderTudo(); await carregaT1(); }
+  if (t !== "t2") { renderTudo(); await carregaT1(); }
   renderTudo();
 }
 // Página aberta há horas: se saiu versão nova do site, recarrega sozinha
@@ -919,13 +1029,13 @@ async function atualizar() {
   const [latest, meta] = await Promise.all([getJSON("latest.json"), getJSON("meta.json")]);
   if (latest) S.d.t2.latest = latest;
   if (meta) S.d.t2.meta = meta;
-  if (!T1()) await renderTudo();
+  if (!T1()) await renderTudo();  // 2º turno e 1º × 2º acompanham a apuração
 }
 async function iniciar() {
   if (TESTE) $("aviso-teste").hidden = false;
   montaEventos();
   lerHash();
-  const hashT1 = S.turno === "t1";
+  const doHash = S.turno;
   S.turno = "t2";
   const [mun] = await Promise.all([getJSON("municipios.json"), (async () => {
     const [latest, meta] = await Promise.all([getJSON("latest.json"), getJSON("meta.json")]);
@@ -934,8 +1044,8 @@ async function iniciar() {
   if (mun) S.municipios = mun;
   // Abre no 2º turno se já houver votos; senão no 1º
   const br2 = S.d.t2.latest && S.d.t2.latest.br;
-  S.turno = hashT1 || !br2 || !(br2.pct_apurado > 0) ? "t1" : "t2";
-  if (S.turno === "t1") await carregaT1();
+  S.turno = doHash !== "t2" ? doHash : !br2 || !(br2.pct_apurado > 0) ? "t1" : "t2";
+  if (S.turno !== "t2") await carregaT1();
   renderTudo();
   marcaSlide();
   Promise.all([getJSON("base_1t/br.json"), getJSON("base_1t/uf.json"), getJSON("base_1t/mun.json")]).then(([br, uf, m]) => {
