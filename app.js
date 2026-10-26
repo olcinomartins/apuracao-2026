@@ -13,7 +13,7 @@ const BASE_T1 = QS.get("dados_t1") || (TESTE ? "./data-test/t1/" : `https://raw.
 const GEOJSON = "https://cdn.jsdelivr.net/gh/codeforgermany/click_that_hood@48ba05ad4c6969e3b3c25735492169227ae411f1/public/data/brazil-states.geojson";
 const REFRESH_MS = 60000;
 // Versão publicada; muda a cada deploy junto com versao.txt e os ?v= do index.html
-const VERSAO = "20261025215700";
+const VERSAO = "20261025220617";
 
 const REGIOES = {
   N: ["ac", "am", "ap", "pa", "ro", "rr", "to"],
@@ -49,6 +49,7 @@ const S = {
   ordProj: { col: "pct", dir: -1 },     // ordenação da tabela da projeção (Geral): maior % apurado primeiro
   ordReg: { col: "pct", dir: -1 },
   candComp: "flavio",                   // candidato da tabela 1º × 2º
+  ordBar: { reg: "apur", transf: "eleit", mult: "eleit" },  // ordenação das listas com barras
   ordComp: { col: "var", dir: -1 },     // ordenação da tabela 1º × 2º: maior variação primeiro      // ordenação da tabela da projeção (Por região): maior % apurado primeiro
 };
 
@@ -58,6 +59,21 @@ function thOrd(estado, tabela, col, txt, cls = "") {
   // txt pode ser [rótulo longo, rótulo curto para o celular]
   if (Array.isArray(txt)) txt = `<span class="rot-lg">${txt[0]}</span><span class="rot-sm">${txt[1]}</span>`;
   return `<th class="${cls}" aria-sort="${ativo ? (estado.dir > 0 ? "ascending" : "descending") : "none"}"><button type="button" class="th-ord" data-ord-tab="${tabela}" data-ord-col="${col}">${txt}${ativo ? (estado.dir > 0 ? " ↑" : " ↓") : ""}</button></th>`;
+}
+// Seletor "Ordenar" das listas com barras e gráficos pequenos
+const OPC_ORD = {
+  reg: [["apur", "Apurado"], ["eleit", "Eleitores"], ["flavio", "Flávio %"], ["lula", "Lula %"], ["nome", "Nome"]],
+  transf: [["eleit", "Eleitores"], ["outros", "Votos de outros %"], ["flavio", "Mais para Flávio"], ["lula", "Mais para Lula"], ["nome", "Nome"]],
+  mult: [["eleit", "Eleitores"], ["mf", "Margem Flávio"], ["ml", "Margem Lula"], ["nome", "Nome"]],
+};
+function seletorOrdem(chave) {
+  return `<label class="ord-sel"><span>Ordenar</span><select data-ord-bar="${chave}" aria-label="Ordenar a lista">${OPC_ORD[chave]
+    .map(([v, t]) => `<option value="${v}"${S.ordBar[chave] === v ? " selected" : ""}>${t}</option>`).join("")}</select></label>`;
+}
+// Ordena pela chave escolhida: nome em ordem alfabética, números do maior para o menor
+function ordenaBar(linhas, chave, val) {
+  const k = S.ordBar[chave], f = val[k];
+  return [...linhas].sort((a, b) => (k === "nome" ? f(a).localeCompare(f(b), "pt-BR") : (f(b) ?? -1e9) - (f(a) ?? -1e9)));
 }
 function ordena(linhas, estado, val) {
   const { col, dir } = estado;
@@ -686,14 +702,16 @@ function telaRegiao() {
   if (n === "uf") us = us.sort((a, b) => b.p.eleitorado - a.p.eleitorado).slice(0, 40);
   const tit = n === "br" ? "Regiões" : n === "regiao" ? `Estados do ${NOME_REG[S.sel.regiao]}` : n === "uf" ? `Maiores municípios de ${NOME_UF[S.sel.uf]}` : nomeLocal();
   // 1. Barras divididas, ordenadas por % apurado
-  const lin = [...us].sort((a, b) => b.p.pct_apurado - a.p.pct_apurado).map(({ u, p }) => {
+  const lin = ordenaBar(us, "reg", {
+    apur: (x) => x.p.pct_apurado, eleit: (x) => x.p.eleitorado, flavio: (x) => pctC(x.p, "flavio"), lula: (x) => pctC(x.p, "lula"), nome: (x) => nomeUnid(x.u),
+  }).map(({ u, p }) => {
     const f = pctC(p, "flavio") || 0, l = pctC(p, "lula") || 0;
     return `<button type="button" class="div-linha" data-ir-local='${esc(JSON.stringify(u))}' aria-label="${esc(nomeUnid(u))}: Flávio ${fmtPct(f, 1)}, Lula ${fmtPct(l, 1)}, ${fmtPct(p.pct_apurado, 1)} apurado">
       <span class="div-nome">${esc(nomeUnid(u))}<small>${fmtCurto(p.eleitorado)} eleitores</small></span>
       <span class="div-barra">${dois(p) ? `<span style="--c:var(--flavio);width:${f}%">${NF[1].format(f)}%</span>${T1() ? `<span style="--c:var(--outros);width:${Math.max(0, 100 - f - l)}%"></span>` : ""}<span style="--c:var(--lula);width:${l}%">${NF[1].format(l)}%</span>` : ""}</span>
       <span class="div-apur">${fmtPct(p.pct_apurado, 1)}<small>apurado</small></span></button>`;
   }).join("");
-  $("s0").innerHTML = `<h2>${esc(tit)}</h2><p class="sub">Flávio à esquerda, Lula à direita; ordenado pelo quanto já foi apurado. Toque numa linha para abrir o local.</p><div class="enche"><div class="divs">${lin || '<p class="sub">Sem dados ainda.</p>'}</div></div>`;
+  $("s0").innerHTML = `<div class="tela-cab"><h2>${esc(tit)}</h2>${seletorOrdem("reg")}</div><p class="sub">Flávio à esquerda, Lula à direita<span class="sub-longo">. Toque numa linha para abrir o local</span>.</p><div class="enche"><div class="divs">${lin || '<p class="sub">Sem dados ainda.</p>'}</div></div>`;
   // 2. Projeção por região: quanto cada uma soma para a vantagem final
   if (T1()) {
     $("s1").innerHTML = `<h2>Projeção</h2><p class="sub">O 1º turno já terminou. A projeção por região funciona durante a apuração do 2º turno.</p>`;
@@ -715,8 +733,10 @@ function telaRegiao() {
     $("s2").innerHTML = `<h2>Histórico</h2><p class="sub">O 1º turno não tem histórico gravado.</p>`;
     return;
   }
-  const alvo = us.slice(0, n === "uf" ? 6 : 10);
-  $("s2").innerHTML = `<h2>Margem ao longo da apuração</h2><p class="sub">Diferença Flávio − Lula em pontos percentuais (F+ acima da linha, L+ abaixo) conforme o % apurado.</p><div class="enche"><div class="multiplos" id="mult"></div></div>`;
+  const alvo = ordenaBar(us, "mult", {
+    eleit: (x) => x.p.eleitorado, mf: (x) => margem(x.p), ml: (x) => (margem(x.p) == null ? null : -margem(x.p)), nome: (x) => nomeUnid(x.u),
+  }).slice(0, n === "uf" ? 6 : 10);
+  $("s2").innerHTML = `<div class="tela-cab"><h2>Margem ao longo da apuração</h2>${seletorOrdem("mult")}</div><p class="sub">Diferença Flávio − Lula em pontos percentuais (F+ acima da linha, L+ abaixo) conforme o % apurado.</p><div class="enche"><div class="multiplos" id="mult"></div></div>`;
   Promise.all(alvo.map(async ({ u, p }) => ({ u, p, s: await carregaSerie(u) }))).then((itens) => {
     const el = $("mult");
     if (!el) return;
@@ -823,10 +843,12 @@ function telaTransferencia(paraRegiao) {
     : `<span class="div-barra"><span style="--c:var(--flavio);width:${100 * fracF}%">${rot && fracF >= 0.24 ? NF[0].format(100 * fracF) + "%" : ""}</span><span style="--c:var(--lula);width:${100 * (1 - fracF)}%">${rot && fracF <= 0.76 ? NF[0].format(100 * (1 - fracF)) + "%" : ""}</span></span>`);
   const n = nivel();
   let rows = n === "mun" ? [] : unidades(S.sel, paraRegiao).map((u) => ({ u, hd: herdou(u) })).filter((r) => r.hd && r.hd.fracF != null);
-  rows = rows.sort((a, b) => b.hd.eleit - a.hd.eleit).slice(0, 60);
+  rows = ordenaBar(rows, "transf", {
+    eleit: (r) => r.hd.eleit, outros: (r) => r.hd.outros, flavio: (r) => r.hd.fracF, lula: (r) => 1 - r.hd.fracF, nome: (r) => nomeUnid(r.u),
+  }).slice(0, 60);
   const lin = rows.map(({ u, hd: x }) => `<button type="button" class="div-linha" data-ir-local='${esc(JSON.stringify(u))}' aria-label="${esc(nomeUnid(u))}: dos votos de outros candidatos, ${NF[0].format(100 * x.fracF)}% para Flávio">
       <span class="div-nome">${esc(nomeUnid(u))}<small>outros: ${fmtPct(x.outros, 1)}</small></span>${barra(x.fracF, true)}<span class="div-apur">${num(x.eleit)}<small>eleitores</small></span></button>`).join("");
-  $("s1").innerHTML = `<h2>Para onde foram os votos dos outros candidatos</h2>
+  $("s1").innerHTML = `<div class="tela-cab"><h2>Para onde foram os votos dos outros candidatos</h2>${seletorOrdem("transf")}</div>
     <p class="sub">Estimativa: compara os percentuais dos dois turnos<span class="sub-longo">; ignora quem trocou de um candidato para o outro e mudanças de comparecimento</span>.</p>
     <div class="bloco transf-topo">${hd && hd.fracF != null
       ? `<p class="achado">${esc(nomeLocal())}: ${fraseHerdou(hd).replace(/^D/, "d")}</p>${barra(hd.fracF, true)}`
@@ -1007,6 +1029,10 @@ function montaEventos() {
     if (g) return selecionar({ regiao: UF_REG[g.dataset.uf] || null, uf: g.dataset.uf, mun: null });
     const l = e.target.closest("[data-ir-local]");
     if (l) { selecionar(JSON.parse(l.dataset.irLocal)); irPara(0); }
+  });
+  c.addEventListener("change", (e) => {
+    const sel = e.target.closest("select[data-ord-bar]");
+    if (sel) { S.ordBar[sel.dataset.ordBar] = sel.value; renderTudo(); }
   });
   let rz;
   addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => { renderTudo(); marcaSlide(); }, 250); });
