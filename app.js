@@ -13,7 +13,7 @@ const BASE_T1 = QS.get("dados_t1") || (TESTE ? "./data-test/t1/" : `https://raw.
 const GEOJSON = "https://cdn.jsdelivr.net/gh/codeforgermany/click_that_hood@48ba05ad4c6969e3b3c25735492169227ae411f1/public/data/brazil-states.geojson";
 const REFRESH_MS = 60000;
 // Versão publicada; muda a cada deploy junto com versao.txt e os ?v= do index.html
-const VERSAO = "20261025214705";
+const VERSAO = "20261025215700";
 
 const REGIOES = {
   N: ["ac", "am", "ap", "pa", "ro", "rr", "to"],
@@ -689,7 +689,7 @@ function telaRegiao() {
   const lin = [...us].sort((a, b) => b.p.pct_apurado - a.p.pct_apurado).map(({ u, p }) => {
     const f = pctC(p, "flavio") || 0, l = pctC(p, "lula") || 0;
     return `<button type="button" class="div-linha" data-ir-local='${esc(JSON.stringify(u))}' aria-label="${esc(nomeUnid(u))}: Flávio ${fmtPct(f, 1)}, Lula ${fmtPct(l, 1)}, ${fmtPct(p.pct_apurado, 1)} apurado">
-      <span class="div-nome">${esc(nomeUnid(u))}<small>${fmtInt(p.eleitorado)} eleitores</small></span>
+      <span class="div-nome">${esc(nomeUnid(u))}<small>${fmtCurto(p.eleitorado)} eleitores</small></span>
       <span class="div-barra">${dois(p) ? `<span style="--c:var(--flavio);width:${f}%">${NF[1].format(f)}%</span>${T1() ? `<span style="--c:var(--outros);width:${Math.max(0, 100 - f - l)}%"></span>` : ""}<span style="--c:var(--lula);width:${l}%">${NF[1].format(l)}%</span>` : ""}</span>
       <span class="div-apur">${fmtPct(p.pct_apurado, 1)}<small>apurado</small></span></button>`;
   }).join("");
@@ -820,7 +820,7 @@ function telaTransferencia(paraRegiao) {
   if (!lat1 || !lat2) { $("s1").innerHTML = `<h2>Para onde foram os votos</h2><p class="sub">Carregando…</p>`; return; }
   const hd = herdou(S.sel);
   const barra = (fracF, rot) => (fracF == null ? `<span class="div-barra"></span>`
-    : `<span class="div-barra"><span style="--c:var(--flavio);width:${100 * fracF}%">${rot && fracF >= 0.2 ? NF[0].format(100 * fracF) + "%" : ""}</span><span style="--c:var(--lula);width:${100 * (1 - fracF)}%">${rot && fracF <= 0.8 ? NF[0].format(100 * (1 - fracF)) + "%" : ""}</span></span>`);
+    : `<span class="div-barra"><span style="--c:var(--flavio);width:${100 * fracF}%">${rot && fracF >= 0.24 ? NF[0].format(100 * fracF) + "%" : ""}</span><span style="--c:var(--lula);width:${100 * (1 - fracF)}%">${rot && fracF <= 0.76 ? NF[0].format(100 * (1 - fracF)) + "%" : ""}</span></span>`);
   const n = nivel();
   let rows = n === "mun" ? [] : unidades(S.sel, paraRegiao).map((u) => ({ u, hd: herdou(u) })).filter((r) => r.hd && r.hd.fracF != null);
   rows = rows.sort((a, b) => b.hd.eleit - a.hd.eleit).slice(0, 60);
@@ -834,12 +834,23 @@ function telaTransferencia(paraRegiao) {
     <div class="enche bloco"><div class="divs">${lin || '<p class="sub">Escolha um nível acima (estado ou região) para ver as partes.</p>'}</div></div>`;
 }
 
+// Título do local nunca cortado: diminui e quebra; se precisar, o seletor de painel vai para a linha de baixo
+function ajustaTitulo() {
+  const h1 = $("titulo-local"), cab = h1.closest(".cab");
+  h1.textContent = nomeLocal();
+  h1.classList.remove("longo"); cab.classList.remove("empilha");
+  if (h1.scrollWidth <= h1.clientWidth + 1) return;
+  h1.classList.add("longo");
+  // mais de 2 linhas na largura disponível → empilha
+  if (h1.scrollHeight > 2 * 21 + 4 || h1.scrollWidth > h1.clientWidth + 1) cab.classList.add("empilha");
+}
+
 /* ---------- render ---------- */
 let seq = 0;
 async function renderTudo() {
   renderMeta();
   syncCombos();
-  $("titulo-local").textContent = nomeLocal();
+  ajustaTitulo();
   const filtrado = nivel() !== "br";
   const bl = $("btn-limpar");
   if (filtrado && bl.disabled) { bl.classList.remove("pulsa"); void bl.offsetWidth; bl.classList.add("pulsa"); }

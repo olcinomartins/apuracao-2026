@@ -125,6 +125,10 @@ main { flex: 1; min-height: 0; width: 100%; max-width: 1132px; margin: 0 auto; p
 .cab { flex: none; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "txt turno" "abas abas"; align-items: center; gap: 4px 12px; margin: 10px 0 8px; }
 .cab-txt { grid-area: txt; min-width: 0; }
 .cab h1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Título longo: primeiro diminui e quebra em 2 linhas; se ainda não couber, o seletor de painel desce */
+.cab h1.longo { font-size: 17px; line-height: 21px; white-space: normal; }
+.cab.empilha { grid-template-columns: minmax(0, 1fr); grid-template-areas: "txt" "turno" "abas"; }
+.cab.empilha .seg-turno { justify-self: start; }
 .seg-turno { grid-area: turno; }
 .seg-turno button { min-height: 34px; padding: 0 10px; }
 @media (max-width: 420px) { .seg-turno button { padding: 0 7px; font-size: 13px; } .cab h1 { font-size: 20px; } }
@@ -279,12 +283,14 @@ th.num-l .th-ord { color: var(--lula); }
 .link-cel:focus-visible { outline: 2px solid var(--focus); }
 
 /* barras divididas (por região) */
-.divs { display: grid; gap: 4px; margin-top: 12px; }
+.divs { display: grid; gap: 4px; margin-top: 12px; align-content: start; grid-auto-rows: max-content; }
 .div-linha { all: unset; box-sizing: border-box; display: grid; grid-template-columns: minmax(84px, 26%) minmax(0, 1fr) 64px; gap: 10px; align-items: center; min-height: 44px; cursor: pointer; border-bottom: 1px solid var(--rule); }
 .div-linha:last-child { border-bottom: 0; }
 .div-linha:focus-visible { outline: 2px solid var(--focus); }
-.div-nome { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.div-nome small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; line-height: 16px; }
+/* Nome em até duas linhas (nunca cortado no meio: "Rio Grande do Norte" aparece inteiro) */
+.div-nome { font-weight: 600; min-width: 0; line-height: 17px; overflow-wrap: anywhere; padding-block: 4px; }
+.div-nome small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; line-height: 15px; }
+@media (max-width: 520px) { .div-nome { font-size: 13px; } .div-linha { grid-template-columns: minmax(96px, 30%) minmax(0, 1fr) 58px; gap: 8px; } }
 .div-barra { position: relative; display: flex; height: 22px; gap: 2px; border-radius: 4px; overflow: hidden; background: var(--sem); }
 .div-barra span { background: var(--c); display: flex; align-items: center; font-size: 11px; font-weight: 600; color: #fff; padding: 0 4px; white-space: nowrap; overflow: hidden; }
 .div-barra span:last-child { justify-content: flex-end; }
