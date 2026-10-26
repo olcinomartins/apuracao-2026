@@ -13,7 +13,7 @@ const BASE_T1 = QS.get("dados_t1") || (TESTE ? "./data-test/t1/" : `https://raw.
 const GEOJSON = "https://cdn.jsdelivr.net/gh/codeforgermany/click_that_hood@48ba05ad4c6969e3b3c25735492169227ae411f1/public/data/brazil-states.geojson";
 const REFRESH_MS = 60000;
 // Versão publicada; muda a cada deploy junto com versao.txt e os ?v= do index.html
-const VERSAO = "20261025212225";
+const VERSAO = "20261025214450";
 
 const REGIOES = {
   N: ["ac", "am", "ap", "pa", "ro", "rr", "to"],
@@ -126,12 +126,15 @@ function mudanca(sel) {
   if (!a || !b || !dois(a) || !dois(b)) return null;
   return margem(b) - margem(a);
 }
+// Mudança menor que 1 p.p. é "quase igual": cinza neutro, para não parecer que alguém virou
+const MUD_NEUTRA = 1;
 function corMud(d) {
   if (d == null) return cssVar("--sem");
+  if (Math.abs(d) < MUD_NEUTRA) return cssVar("--neutra");
   const base = cssVar(d >= 0 ? "--flavio" : "--lula");
   return mix(base, cssVar("--surface"), 0.78 - 0.68 * Math.min(1, Math.abs(d) / 12));
 }
-const txtMud = (d) => (d == null ? "–" : `${d >= 0 ? "F" : "L"}+${NF[Math.abs(d) < 10 ? 1 : 0].format(Math.abs(d))}`);
+const txtMud = (d) => (d == null ? "–" : Math.abs(d) < MUD_NEUTRA ? "=" : `${d >= 0 ? "F" : "L"}+${NF[Math.abs(d) < 10 ? 1 : 0].format(Math.abs(d))}`);
 const dois = (p) => (p ? p.votos.flavio + p.votos.lula : 0);
 // % de um candidato: no 2º turno sobre os dois; no 1º, sobre todos os válidos
 const pctC = (p, k) => {
@@ -457,7 +460,7 @@ function blocoMapaEstado(lat, uf) {
       const dica = `${nome}: ${fmtPct(p ? p.pct_apurado : 0, 1)} apurado${p && dois(p) ? ` · Flávio ${fmtPct(pctC(p, "flavio"), 1)}, Lula ${fmtPct(pctC(p, "lula"), 1)}` : ""}`;
       const d = COMP() && m.cd ? mudanca({ regiao: UF_REG[uf] || null, uf, mun: m.cd }) : null;
       const fill = COMP() ? corMud(d) : corIntensa(p);
-      const dica2 = COMP() ? `${nome}: mudança ${txtMud(d)} p.p. entre os turnos` : dica;
+      const dica2 = COMP() ? `${nome}: ${d == null ? "sem dados" : Math.abs(d) < MUD_NEUTRA ? "margem quase igual nos dois turnos" : `margem andou ${NF[1].format(Math.abs(d))} p.p. para ${d >= 0 ? "Flávio" : "Lula"}`}` : dica;
       h += `<g class="uf mun${m.cd === munSel ? " sel" : ""}" ${m.cd ? `data-mun="${m.cd}" tabindex="0" role="button" aria-label="${esc(dica2)}"` : ""}><title>${esc(dica2)}</title><path d="${m.d}" fill="${fill}"/></g>`;
     }
     if (munSel) {
@@ -472,7 +475,7 @@ function blocoMapaEstado(lat, uf) {
     ${legendaMapa(true)}`;
 }
 function legendaMapa(municipios) {
-  if (COMP()) return `<p class="legenda"><span class="sw" style="--c:var(--lula)"></span>andou para Lula <span class="sw" style="--c:var(--flavio)"></span>andou para Flávio · tom mais forte = mudança maior${municipios ? "" : " · número = mudança da margem (p.p.)"}</p>`;
+  if (COMP()) return `<p class="legenda"><span class="sw" style="--c:var(--lula)"></span>Lula cresceu mais <span class="sw" style="--c:var(--flavio)"></span>Flávio cresceu mais <span class="sw" style="--c:var(--neutra)"></span>quase igual (&lt;1 p.p.) · a cor não indica quem venceu${municipios ? "" : " · número = mudança da margem"}</p>`;
   if (municipios) return `<p class="legenda"><span class="sw" style="--c:var(--lula)"></span>Lula <span class="sw" style="--c:var(--flavio)"></span>Flávio <span class="sw" style="--c:var(--sem)"></span>sem votos · tom mais forte = vitória mais folgada · toque num município</p>`;
   return `<p class="legenda"><span class="sw" style="--c:var(--lula)"></span>Lula <span class="sw" style="--c:var(--flavio)"></span>Flávio <span class="sw" style="--c:var(--sem)"></span>sem votos · número = % de urnas apuradas</p>`;
 }
@@ -493,7 +496,7 @@ function blocoMapa(lat) {
     const p = lat.uf[uf];
     const dUF = COMP() ? mudanca({ regiao: UF_REG[uf] || null, uf, mun: null }) : null;
     const cor = COMP() ? corMud(dUF) : cssVar(corLider(p));
-    const dica = COMP() ? `${NOME_UF[uf]}: mudança da margem ${txtMud(dUF)} p.p. entre os turnos`
+    const dica = COMP() ? `${NOME_UF[uf]}: ${dUF == null ? "sem dados" : Math.abs(dUF) < MUD_NEUTRA ? "margem quase igual nos dois turnos" : `margem andou ${NF[1].format(Math.abs(dUF))} p.p. para ${dUF >= 0 ? "Flávio" : "Lula"}`}`
       : `${NOME_UF[uf]}: ${fmtPct(p ? p.pct_apurado : 0, 1)} apurado${p && dois(p) ? ` · Flávio ${fmtPct(pctC(p, "flavio"), 1)}, Lula ${fmtPct(pctC(p, "lula"), 1)}` : ""}`;
     h += `<g class="uf${sel.has(uf) ? " sel" : ""}${daRegiao && !daRegiao.has(uf) ? " fora-reg" : ""}" data-uf="${uf}" tabindex="0" role="button" aria-label="${esc(dica)}"><title>${esc(dica)}</title><path d="${paths[uf]}" fill="${cor}"/></g>`;
   }
@@ -781,6 +784,12 @@ function herdou(sel) {
   const fracF = tot > 0.3 ? Math.min(1, Math.max(0, gF / tot)) : null;
   return { outros, gF, gL, fracF, eleit: a.eleitorado };
 }
+function fraseHerdou(hd) {
+  if (!hd || hd.fracF == null) return "";
+  if (hd.fracF <= 0.03) return `Dos ${fmtPct(hd.outros, 1)} que votaram em outros no 1º turno, praticamente todos foram para Lula.`;
+  if (hd.fracF >= 0.97) return `Dos ${fmtPct(hd.outros, 1)} que votaram em outros no 1º turno, praticamente todos foram para Flávio.`;
+  return `Dos ${fmtPct(hd.outros, 1)} que votaram em outros no 1º turno, cerca de ${NF[0].format(100 * (1 - hd.fracF))}% foram para Lula e ${NF[0].format(100 * hd.fracF)}% para Flávio.`;
+}
 function telaMudanca() {
   const lat1 = S.d.t1.latest, lat2 = S.d.t2.latest;
   if (!lat1 || !lat2) { $("s0").innerHTML = `<p class="achado">Carregando os dois turnos…</p>`; return; }
@@ -800,7 +809,9 @@ function telaMudanca() {
       <div class="indic"><div><small>Margem no 1º</small><b class="${m1 == null ? "" : m1 >= 0 ? "num-f" : "num-l"}">${lado(m1).replace(" p.p.", "")}</b></div>
         <div><small>Margem no 2º</small><b class="${m2 == null ? "" : m2 >= 0 ? "num-f" : "num-l"}">${lado(m2).replace(" p.p.", "")}</b></div>
         <div><small>Mudança</small><b class="${d == null ? "" : d >= 0 ? "num-f" : "num-l"}">${txtMud(d)}</b></div></div>
-      <p class="achado">${d == null ? "Aguardando votos dos dois turnos." : `Entre os turnos, a disputa andou ${NF[1].format(Math.abs(d))} p.p. para ${d >= 0 ? "Flávio" : "Lula"}.`}${hd && hd.fracF != null ? ` Dos ${fmtPct(hd.outros, 1)} que votaram em outros no 1º turno, cerca de ${NF[0].format(100 * (1 - hd.fracF))}% foram para Lula e ${NF[0].format(100 * hd.fracF)}% para Flávio.` : ""}</p>
+      <p class="achado">${d == null ? "Aguardando votos dos dois turnos."
+        : Math.abs(d) < MUD_NEUTRA ? `A margem quase não mudou entre os turnos (${NF[1].format(Math.abs(d))} p.p.).`
+        : `Entre os turnos, a disputa andou ${NF[1].format(Math.abs(d))} p.p. para ${d >= 0 ? "Flávio" : "Lula"}.`}${d != null && Math.abs(d) >= MUD_NEUTRA && m2 != null && Math.sign(d) !== Math.sign(m2) ? ` ${m2 >= 0 ? "Flávio" : "Lula"} continua vencendo aqui; a mudança só mostra que ${d >= 0 ? "Flávio" : "Lula"} cresceu mais entre os turnos.` : ""}${hd && hd.fracF != null ? " " + fraseHerdou(hd) : ""}</p>
     </div>
     <div class="apur-dir">${blocoMapa(lat2)}</div></div>`;
 }
@@ -818,7 +829,7 @@ function telaTransferencia(paraRegiao) {
   $("s1").innerHTML = `<h2>Para onde foram os votos dos outros candidatos</h2>
     <p class="sub">Estimativa: compara os percentuais dos dois turnos<span class="sub-longo">; ignora quem trocou de um candidato para o outro e mudanças de comparecimento</span>.</p>
     <div class="bloco transf-topo">${hd && hd.fracF != null
-      ? `<p class="achado">${esc(nomeLocal())}: dos ${fmtPct(hd.outros, 1)} que votaram em outros no 1º turno, cerca de <b class="num-f">${NF[0].format(100 * hd.fracF)}%</b> foram para Flávio e <b class="num-l">${NF[0].format(100 * (1 - hd.fracF))}%</b> para Lula.</p>${barra(hd.fracF, true)}`
+      ? `<p class="achado">${esc(nomeLocal())}: ${fraseHerdou(hd).replace(/^D/, "d")}</p>${barra(hd.fracF, true)}`
       : `<p class="sub">Ainda não dá para estimar neste local.</p>`}</div>
     <div class="enche bloco"><div class="divs">${lin || '<p class="sub">Escolha um nível acima (estado ou região) para ver as partes.</p>'}</div></div>`;
 }
